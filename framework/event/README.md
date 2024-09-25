@@ -25,7 +25,7 @@ example
 {
   "event_type": "{event_type_name}",
   "timestamp": "2024-08-20T05:21:19.143357839Z",
-  "payload": { /* any */ },
+  "payload": "{ object }",
   "metadata": {
     "source": "{source_name}",
     "version": "1.0"
@@ -125,6 +125,8 @@ func main() {
 }
 ```
 
+## Example
+You can find a complete working example in the repository under [framework/event/example](example/).
 
 ## Configuration
 The `EventHandler` can be configured using the functional options pattern. Available options include:
