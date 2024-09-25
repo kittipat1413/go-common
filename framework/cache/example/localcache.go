@@ -41,7 +41,11 @@ func main() {
 	fmt.Printf("Value for key 'farewell': %s\n", value)
 
 	// Invalidate a key
-	c.InvalidateAll(ctx)
+	err = c.InvalidateAll(ctx)
+	if err != nil {
+		fmt.Printf("Error invalidating cache: %v\n", err)
+		return
+	}
 
 	// Try to get the invalidated value (will re-initialize)
 	value, err = c.Get(ctx, key, initializer)

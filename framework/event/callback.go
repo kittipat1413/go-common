@@ -61,7 +61,11 @@ func (eh *EventHandler) sendCallback(ctx context.Context, url string) {
 			log.Printf("Attempt %d: Failed to send callback to: %s, error: %v\n", attempt+1, url, err)
 		} else {
 			// Read and discard the response body
-			io.Copy(io.Discard, resp.Body)
+			_, err = io.Copy(io.Discard, resp.Body)
+			if err != nil {
+				log.Printf("Attempt %d: Failed to read response body for callback to: %s, error: %v\n", attempt+1, url, err)
+				return
+			}
 			resp.Body.Close()
 
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
