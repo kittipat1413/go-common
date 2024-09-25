@@ -42,7 +42,7 @@ func (b *BaseEventMessage[T]) GetPayload() T {
 
 type EventMessageV1[T any] struct {
 	BaseEventMessage[T]
-	Callback CallbackInfo `json:"callback"`
+	Callback *CallbackInfo `json:"callback"`
 }
 
 type CallbackInfo struct {

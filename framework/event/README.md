@@ -18,7 +18,31 @@ The Event Package provides a robust and flexible framework for handling event me
 ## Usage
 
 ### Defining Event Messages
-Define your event payload structures that will be used in event messages.
+Event messages are expected to be in JSON format with a specific structure. Here's a simple
+
+example
+```json
+{
+  "event_type": "{event_type_name}",
+  "timestamp": "2024-08-20T05:21:19.143357839Z",
+  "payload": { /* any */ },
+  "metadata": {
+    "source": "{source_name}",
+    "version": "1.0"
+  },
+  "callback": {
+    "success_url": "{success_url}",
+    "fail_url": "{fail_url}"
+  }
+}
+```
+- `event_type`: A string indicating the type of event.
+- `timestamp`: An RFC3339 formatted timestamp.
+- `payload`: An object containing the event data. This is where generics come into play, allowing for flexible payload types.
+- `metadata`: An object containing metadata about the event, including the `version`.
+- `callback`: An object specifying URLs for success and failure callbacks (optional).
+
+The use of Go's generics allows the framework to handle events with different payload types while maintaining type safety and reducing code duplication.
 ```golang
 // event_payload.go
 package your_package

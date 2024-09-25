@@ -20,7 +20,11 @@ const (
 )
 
 // HandleCallback handles the success and failure callback logic using the EventHandler's http.Client
-func (eh *EventHandler) HandleCallback(err error, callback CallbackInfo) {
+func (eh *EventHandler) HandleCallback(err error, callback *CallbackInfo) {
+	if callback == nil {
+		return
+	}
+
 	if err != nil {
 		if callback.FailURL != "" {
 			go func() {

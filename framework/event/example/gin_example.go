@@ -12,8 +12,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// To run this example, use the following curl command:
 /*
+To run this example, use the following curl command:
+
+- with callback
 curl -X POST \
      -H "Content-Type: application/json" \
      -d '{
@@ -34,6 +36,22 @@ curl -X POST \
         }' \
      http://localhost:8080/event
 
+- without callback
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{
+          "event_type": "test_event",
+          "timestamp": "2024-08-20T05:21:19.143357839Z",
+          "payload": {
+            "message": "Hello, World!",
+            "value": 42
+          },
+          "metadata": {
+            "source": "test_source",
+            "version": "1.0"
+          }
+        }' \
+     http://localhost:8080/event
 */
 
 func main() {
