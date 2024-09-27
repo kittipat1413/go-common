@@ -8,11 +8,11 @@ The Cache Package provides a unified caching interface (`Cache[T]`) with support
 ### Cache Interface
 The core of the cache package is the `Cache[T]` interface, which defines the methods that all cache implementations must provide:
 ```golang
-type Initializer[T any] func() (T, time.Duration, error)
+type Initializer[T any] func() (T, *time.Duration, error)
 
 type Cache[T any] interface {
     Get(ctx context.Context, key string, initializer Initializer[T]) (T, error)
-    Set(ctx context.Context, key string, value T, duration time.Duration)
+    Set(ctx context.Context, key string, value T, duration *time.Duration)
     Invalidate(ctx context.Context, key string) error
     InvalidateAll(ctx context.Context) error
 }
@@ -54,7 +54,7 @@ func (r *redisCache[T]) Get(ctx context.Context, key string, initializer cache.I
     // Implementation
 }
 
-func (r *redisCache[T]) Set(ctx context.Context, key string, value T, duration time.Duration) {
+func (r *redisCache[T]) Set(ctx context.Context, key string, value T, duration *time.Duration) {
     // Implementation
 }
 
