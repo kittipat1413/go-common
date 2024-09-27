@@ -80,7 +80,7 @@ func (mr *MockCacheMockRecorder[T]) InvalidateAll(ctx interface{}) *gomock.Call 
 }
 
 // Set mocks base method.
-func (m *MockCache[T]) Set(ctx context.Context, key string, value T, duration time.Duration) {
+func (m *MockCache[T]) Set(ctx context.Context, key string, value T, duration *time.Duration) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Set", ctx, key, value, duration)
 }

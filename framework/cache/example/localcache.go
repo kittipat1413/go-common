@@ -10,17 +10,19 @@ import (
 
 func main() {
 	ctx := context.Background()
-	c := localcache.New[string]()
-
-	key := "greeting"
+	// Create a new cache with default expiration of 10 minutes and cleanup interval of 5 minutes
+	c := localcache.New[string](localcache.WithDefaultExpiration(10*time.Minute), localcache.WithCleanupInterval(5*time.Minute))
 
 	// Initializer function
-	initializer := func() (string, time.Duration, error) {
+	initializer := func() (string, *time.Duration, error) {
 		// Simulate data fetching or computation
 		time.Sleep(100 * time.Millisecond)
-		return "Hello, World!", 5 * time.Minute, nil
+
+		expire := 100 * time.Millisecond
+		return "Hello, World!", &expire, nil
 	}
 
+	key := "greeting"
 	// Get value from cache (will initialize if not present)
 	value, err := c.Get(ctx, key, initializer)
 	if err != nil {
@@ -29,8 +31,15 @@ func main() {
 	}
 	fmt.Printf("Value for key '%s': %s\n", key, value)
 
-	// Set value manually
-	c.Set(ctx, "farewell", "Goodbye!", 10*time.Minute)
+	// Get value from cache after 100 milliseconds (should be expired)
+	time.Sleep(100 * time.Millisecond)
+	_, err = c.Get(ctx, key, nil)
+	if err != nil {
+		fmt.Printf("Error getting for key '%s': value: %v\n", key, err)
+	}
+
+	// Set value manually with no expiration
+	c.Set(ctx, "farewell", "Goodbye!", nil)
 
 	// Get the manually set value
 	value, err = c.Get(ctx, "farewell", nil)
