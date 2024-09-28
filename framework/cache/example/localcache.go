@@ -39,7 +39,8 @@ func main() {
 	}
 
 	// Set value manually with no expiration
-	c.Set(ctx, "farewell", "Goodbye!", nil)
+	noExpiration := localcache.NoExpireDuration
+	c.Set(ctx, "farewell", "Goodbye!", &noExpiration)
 
 	// Get the manually set value
 	value, err = c.Get(ctx, "farewell", nil)

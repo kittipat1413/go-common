@@ -22,6 +22,73 @@ type Cache[T any] interface {
 - `Invalidate`: Removes a specific key from the cache.
 - `InvalidateAll`: Clears all items from the cache.
 
+## Local Cache Implementation
+The `localcache` package provides an in-memory cache implementation of the `Cache[T]` interface. It stores items in memory with optional expiration times and supports automatic cleanup of expired items.
+
+### Creating a Cache Instance
+```golang
+import (
+    "github.com/kittipat1413/go-common/framework/cache/localcache"
+)
+
+// Create a new local cache with default settings
+c := localcache.New[string]()
+```
+
+### Customizing Cache Options
+You can customize the cache by providing options:
+```golang
+import (
+    "github.com/kittipat1413/go-common/framework/cache/localcache"
+)
+
+c := localcache.New[string](
+    localcache.WithDefaultExpiration(10 * time.Minute),
+    localcache.WithCleanupInterval(5 * time.Minute),
+)
+```
+- `WithDefaultExpiration`: Sets the default expiration duration for cache items.
+- `WithCleanupInterval`: Sets the interval for automatically cleaning up expired items.
+
+### Using the Cache
+```golang
+ctx := context.Background()
+key := "greeting"
+
+// Define an initializer function
+initializer := func() (string, *time.Duration, error) {
+    value := "Hello, World!"
+    duration := 5 * time.Minute
+    return value, &duration, nil
+}
+
+// Get value from cache (will initialize if not present)
+value, err := c.Get(ctx, key, initializer)
+if err != nil {
+    // Handle error
+}
+fmt.Println("Value:", value)
+
+// Set a value with a specific expiration
+customDuration := 1 * time.Hour
+c.Set(ctx, "customKey", "Custom Value", &customDuration)
+
+// Invalidate a specific key
+c.Invalidate(ctx, key)
+
+// Invalidate all keys
+c.InvalidateAll(ctx)
+```
+
+### Handling Items with No Expiration
+To set an item that never expires, use `NoExpireDuration`:
+```golang
+import "github.com/kittipat1413/go-common/framework/cache/localcache"
+
+noExpiration := cache.NoExpireDuration
+c.Set(ctx, "permanentKey", "Permanent Value", &noExpiration)
+```
+
 ## Example
 You can find a complete working example in the repository under [framework/cache/example](example/).
 
@@ -33,7 +100,7 @@ To implement a new cache type:
 - Create a New Package: For example, `redis_cache`.
 - Implement the `Cache[T]` Interface:
 ```golang
-package redis_cache
+package rediscache
 
 import (
     "context"
