@@ -1,38 +1,36 @@
 # Event Package
-This directory contains the Event Handling Framework for Go applications, designed to streamline the processing of event-driven workflows in backend services. It is a part of a larger collection of utilities aimed at standardizing backend API repositories within our organization.
+This directory contains the **Event Handling Framework** for Go applications, designed to streamline event-driven workflows in backend services. It provides a generic and modular way to handle event messages with flexible payloads and versioning support.
 
 ## Introduction
-The Event Package provides a robust and flexible framework for handling event messages in Go applications. It supports:
-- Parsing and validating event messages with version control.
-- Applying consistent business logic processing across services.
-- Handling success and failure callbacks with configurable retry mechanisms.
-- This package is part of our central codebase aimed at unifying code standards across all backend API projects, promoting reusability and maintainability.
+The Event Package provides a robust framework for handling event messages in Go applications. It allows for:
+- Defining and processing event messages with flexible, user-defined payload types.
+- Integration with HTTP frameworks (like Gin) via a generic EventHandler interface.
+- Separation of concerns: event message parsing, business logic handling, and HTTP integration are modular and distinct.
+- This package promotes reusable patterns across services to maintain consistency in event handling across your projects.
 
 ## Features
-- Versioned Event Parsing: Supports multiple versions of event message formats for forward compatibility.
-- Generic Payload Handling: Utilizes Go generics for flexible payload structures.
-- Callback Handling with Retries: Manages success and failure callbacks with exponential backoff and jitter to handle transient failures.
-- Configurable Options: Leverages the functional options pattern for customizable configurations.
-- Integration with Gin: Provides middleware and handler functions compatible with the Gin framework.
+- **User-Defined Payload Types:** Utilizes Go generics to allow flexible payload structures for event messages.
+- **Generic Interface for Event Processing:** Provides a flexible `EventHandler` interface for defining how events are processed.
+- **Modular Design:** Separates event message logic, event handler logic, and HTTP integration for clean and maintainable code.
+- **HTTP Integration:** Includes helper functions for integrating with popular web frameworks like Gin.
 
 ## Usage
 
 ### Defining Event Messages
-Event messages are expected to be in JSON format with a specific structure. Here's a simple
+To define an event, the framework expects a JSON structure with an event type, timestamp, and a flexible payload. The `payload` section of the event can be a user-defined structure, providing the flexibility to handle different kinds of events.
 
 example
 ```json
 {
-  "event_type": "{event_type_name}",
+  "event_type": "user_created",
   "timestamp": "2024-08-20T05:21:19.143357839Z",
-  "payload": "{ object }",
-  "metadata": {
-    "source": "{source_name}",
-    "version": "1.0"
+  "payload": {
+    "user_id": "12345",
+    "username": "johndoe"
   },
-  "callback": {
-    "success_url": "{success_url}",
-    "fail_url": "{fail_url}"
+  "metadata": {
+    "source": "user_service",
+    "version": "1.0"
   }
 }
 ```
@@ -40,44 +38,29 @@ example
 - `timestamp`: An RFC3339 formatted timestamp.
 - `payload`: An object containing the event data. This is where generics come into play, allowing for flexible payload types.
 - `metadata`: An object containing metadata about the event, including the `version`.
-- `callback`: An object specifying URLs for success and failure callbacks (optional).
 
-The use of Go's generics allows the framework to handle events with different payload types while maintaining type safety and reducing code duplication.
+### Defining Your Payload
+Using Go's generics, you can define your own payload type to represent the data for each event:
 ```golang
 // event_payload.go
 package your_package
 
-type MyEventPayload struct {
-    Field1 string `json:"field1"`
-    Field2 int    `json:"field2"`
+type UserCreatedPayload struct {
+    UserID   string `json:"user_id"`
+    Username string `json:"username"`
 }
 ```
 
 ### Creating an Event Handler
-Create an instance of EventHandler, optionally configuring it with custom settings using the functional options pattern.
+The event framework uses a generic `EventHandler` interface to process events.
 ```golang
-// main.go
-package main
-
-import (
-    "net/http"
-    "time"
-
-    "https://github.com/kittipat1413/go-common/framework/event"
-)
-
-func main() {
-    // Initialize EventHandler with custom configurations
-    eventHandler := event.NewEventHandler(
-        event.WithHTTPClient(&http.Client{
-            Timeout: 15 * time.Second,
-        }),
-        event.WithCallbackConfig(5, 2*time.Second, 1*time.Minute),
-    )
-
-    // ... rest of your application setup
+type EventHandler[T any] interface {
+	BeforeHandle(ctx context.Context, msg EventMessage[T]) error
+	AfterHandle(ctx context.Context, msg EventMessage[T], eventResult error) error
+	UnmarshalEventMessage(data []byte) (EventMessage[T], error)
 }
 ```
+> The event framework is designed to be extensible. You can create custom event handlers to handle specific scenarios, such as events with callbacks, or complex retry mechanisms. For examples of custom handlers, see: [custom_handler/callback/handler.go](custom_handler/callback/handler.go)
 
 ### Implementing Business Logic
 Define your business logic function that processes the event payload.
@@ -90,15 +73,19 @@ import (
     "https://github.com/kittipat1413/go-common/framework/event"
 )
 
-func MyBusinessLogic(ctx *gin.Context, msg event.EventMessage[MyEventPayload]) error {
+func MyBusinessLogic(ctx *gin.Context, msg event.EventMessage[UserCreatedPayload]) error {
     payload := msg.GetPayload()
-    // Implement your processing logic here
-    // Return nil on success or an error on failure
+
+    // Process the event
+    log.Printf("User created: %s with ID %s", payload.Username, payload.UserID)
+
+    // Return nil on success, or an error if something goes wrong
     return nil
 }
 ```
-### Setting Up Gin Routes
-Integrate the event handler into your Gin routes.
+
+### Integrating with HTTP Frameworks (e.g., Gin)
+If you are using a web framework like Gin, you can integrate the event framework with the `NewGinEventHandler`, which creates a `gin.HandlerFunc`. This handler can then be injected into your Gin routes. The handler requires an `EventHandler` instance to process the event.
 ```golang
 // main.go
 
@@ -127,15 +114,3 @@ func main() {
 
 ## Example
 You can find a complete working example in the repository under [framework/event/example](example/).
-
-## Configuration
-The `EventHandler` can be configured using the functional options pattern. Available options include:
-- `WithHTTPClient`: Sets a custom http.Client for making callback requests.
-- `WithCallbackConfig`: Sets the callback retry parameters.
-Default Configuration
-
-If no options are provided, the following defaults are used:
-- `HTTP Client`: http.DefaultClient
-- `Max Retries`: 3
-- `Retry Interval`: 2 * time.Second
-- `Callback Timeout`: 1 * time.Minute
