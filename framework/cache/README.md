@@ -80,13 +80,28 @@ c.Invalidate(ctx, key)
 c.InvalidateAll(ctx)
 ```
 
-### Handling Items with No Expiration
-To set an item that never expires, use `NoExpireDuration`:
+### Handling Items Expiration
+When adding an item to the cache, you can control its expiration behavior using the Set method:
+- `Custom Duration`: You can pass a specific duration for the item to expire.
+- `No Expiration`: Use `NoExpireDuration` to make the item persist indefinitely.
+- `Default Expiration`: If you pass `nil` for the duration, the cache will use the default expiration set during cache initialization.
 ```golang
 import "github.com/kittipat1413/go-common/framework/cache/localcache"
 
-noExpiration := cache.NoExpireDuration
-c.Set(ctx, "permanentKey", "Permanent Value", &noExpiration)
+ctx := context.Background()
+key := "session"
+
+// Set item with default expiration (defined during cache initialization)
+c.Set(ctx, key, "Session Data", nil)
+
+// Set item with a custom expiration
+customDuration := 1 * time.Hour
+c.Set(ctx, "customKey", "Custom Value", &customDuration)
+
+// Set item with no expiration (it persists indefinitely)
+noExpiration := localcache.NoExpireDuration
+c.Set(ctx, "persistentKey", "Persistent Value", &noExpiration)
+
 ```
 
 ## Example
