@@ -1,168 +1,141 @@
-package event
+package event_test
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kittipat1413/go-common/framework/event"
 )
 
-func TestUnmarshalEventMessage(t *testing.T) {
-	// Define the payload types for testing
-	type TestPayloadV1 struct {
-		Field1 string `json:"field1"`
-		Field2 int    `json:"field2"`
+func TestBaseEventMessageMethods(t *testing.T) {
+	type SamplePayload struct {
+		Data string `json:"data"`
+	}
+	timestamp := time.Now()
+	metadata := map[string]string{
+		event.MetadataKeyVersion: "1.0",
+		event.MetadataKeySource:  "unit_test",
+	}
+	payload := SamplePayload{Data: "test data"}
+
+	msg := &event.BaseEventMessage[SamplePayload]{
+		EventType: "test_event",
+		Timestamp: timestamp,
+		Payload:   payload,
+		Metadata:  metadata,
 	}
 
-	// Define test cases in a table-driven approach
-	tests := []struct {
-		name            string
-		jsonData        string
-		expectedPayload interface{}
-		expectedError   string
-	}{
+	assert.Equal(t, "1.0", msg.GetVersion())
+	assert.Equal(t, "test_event", msg.GetEventType())
+	assert.Equal(t, timestamp, msg.GetTimestamp())
+	assert.Equal(t, payload, msg.GetPayload())
+	assert.Equal(t, metadata, msg.GetMetadata())
+}
+
+func TestBaseEventMessageUnmarshaller(t *testing.T) {
+	type SamplePayload struct {
+		Data string `json:"data"`
+	}
+	type testCase struct {
+		name        string
+		inputJSON   string
+		expectError bool
+		expectedMsg *event.BaseEventMessage[SamplePayload]
+	}
+
+	timestamp := time.Now().UTC()
+
+	testCases := []testCase{
 		{
-			name: "Valid V1 Message",
-			jsonData: `{
+			name: "Valid Message",
+			inputJSON: fmt.Sprintf(`{
 				"event_type": "test_event",
-				"timestamp": "2024-08-20T05:21:19.143357839Z",
-				"payload": {
-					"field1": "value1",
-					"field2": 42
+				"timestamp": "%s",
+				"payload": {"data": "test data"},
+				"metadata": {"version": "1.0", "source": "unit_test"}
+			}`, timestamp.Format(time.RFC3339Nano)),
+			expectError: false,
+			expectedMsg: &event.BaseEventMessage[SamplePayload]{
+				EventType: "test_event",
+				Timestamp: timestamp,
+				Payload:   SamplePayload{Data: "test data"},
+				Metadata: map[string]string{
+					event.MetadataKeyVersion: "1.0",
+					event.MetadataKeySource:  "unit_test",
 				},
-				"metadata": {
-					"source": "test_source",
-					"version": "1.0"
-				},
-				"callback": {
-					"success_url": "http://success.url",
-					"fail_url": "http://fail.url"
-				}
-			}`,
-			expectedPayload: TestPayloadV1{
-				Field1: "value1",
-				Field2: 42,
 			},
 		},
 		{
-			name: "Type Mismatch in Payload",
-			jsonData: `{
-				"event_type": "test_event",
-				"timestamp": "2024-08-20T05:21:19.143357839Z",
-				"payload": {
-					"field2": "should_be_int"
-				},
-				"metadata": {
-					"source": "test_source",
-					"version": "1.0"
-				}
-			}`,
-			expectedError: "cannot unmarshal string into Go struct field",
+			name:        "Invalid JSON",
+			inputJSON:   `{"event_type": "test_event", "timestamp": "invalid_timestamp"`,
+			expectError: true,
 		},
 		{
-			name: "Extra Fields in Payload",
-			jsonData: `{
+			name: "Invalid Timestamp Format",
+			inputJSON: `{
 				"event_type": "test_event",
-				"timestamp": "2024-08-20T05:21:19.143357839Z",
-				"payload": {
-					"field1": "value1",
-					"extra_field": "extra_value"
-				},
-				"metadata": {
-					"source": "test_source",
-					"version": "1.0"
-				}
+				"timestamp": "not_a_timestamp",
+				"payload": {"data": "test data"},
+				"metadata": {"version": "1.0", "source": "unit_test"}
 			}`,
-			expectedPayload: TestPayloadV1{
-				Field1: "value1",
-				Field2: 0, // Field2 is missing, so it should be zero value
+			expectError: true,
+		},
+		{
+			name: "Invalid Payload Type",
+			inputJSON: fmt.Sprintf(`{
+				"event_type": "test_event",
+				"timestamp": "%s",
+				"payload": {"data": 123},
+				"metadata": {"version": "1.0", "source": "unit_test"}
+			}`, timestamp.Format(time.RFC3339Nano)),
+			expectError: true,
+		},
+		{
+			name: "Valid Message with Extra Fields",
+			inputJSON: fmt.Sprintf(`{
+				"event_type": "test_event",
+				"timestamp": "%s",
+				"payload": {"data": "test data", "extra": "value"},
+				"metadata": {"version": "1.0", "source": "unit_test", "extra_meta": "meta_value"},
+				"extra_field": "extra_value"
+			}`, timestamp.Format(time.RFC3339Nano)),
+			expectError: false,
+			expectedMsg: &event.BaseEventMessage[SamplePayload]{
+				EventType: "test_event",
+				Timestamp: timestamp,
+				Payload:   SamplePayload{Data: "test data"}, // Extra fields are ignored
+				Metadata: map[string]string{
+					event.MetadataKeyVersion: "1.0",
+					event.MetadataKeySource:  "unit_test",
+					"extra_meta":             "meta_value",
+				},
 			},
-		},
-		{
-			name: "Unsupported Version",
-			jsonData: `{
-				"event_type": "test_event",
-				"timestamp": "2024-08-20T05:21:19.143357839Z",
-				"payload": {},
-				"metadata": {
-					"source": "test_source",
-					"version": "2.0"
-				}
-			}`,
-			expectedError: "unsupported version: 2.0",
-		},
-		{
-			name: "Missing Version",
-			jsonData: `{
-				"event_type": "test_event",
-				"timestamp": "2024-08-20T05:21:19.143357839Z",
-				"payload": {},
-				"metadata": {
-					"source": "test_source"
-				}
-			}`,
-			expectedError: "missing version in metadata",
-		},
-		{
-			name: "Invalid JSON",
-			jsonData: `{
-				"event_type": "test_event",
-				"timestamp": "2024-08-20T05:21:19.143357839Z",
-				"payload": {},
-				"metadata": {
-					"source": "test_source",
-					"version": "1.0"
-				},
-				"callback": {
-					"success_url": "http://success.url",
-					"fail_url": "http://fail.url"
-				}
-			`, // Missing closing brace
-			expectedError: "unexpected end of JSON input",
-		},
-		{
-			name: "Missing Metadata",
-			jsonData: `{
-				"event_type": "test_event",
-				"timestamp": "2024-08-20T05:21:19.143357839Z",
-				"payload": {}
-			}`,
-			expectedError: "missing metadata field",
 		},
 	}
 
-	for _, tc := range tests {
+	for _, tc := range testCases {
+		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			// Determine the payload type based on the test case
-			switch tc.name {
-			case "Valid V1 Message", "Type Mismatch in Payload", "Extra Fields in Payload":
-				// For V1 messages, use TestPayloadV1
-				msg, err := UnmarshalEventMessage[TestPayloadV1]([]byte(tc.jsonData))
+			// Unmarshal the JSON data using the BaseEventMessageUnmarshaller
+			unmarshalledMsg, err := event.BaseEventMessageUnmarshaller[SamplePayload]([]byte(tc.inputJSON))
 
-				if tc.expectedError != "" {
-					assert.Error(t, err)
-					assert.Contains(t, err.Error(), tc.expectedError)
-					return
-				}
-
-				assert.NoError(t, err)
-				assert.NotNil(t, msg)
-
-				// Assert the payload
-				assert.Equal(t, tc.expectedPayload, msg.GetPayload())
-
-			default:
-				// For other test cases, use interface{} for payload
-				msg, err := UnmarshalEventMessage[interface{}]([]byte(tc.jsonData))
-
-				if tc.expectedError != "" {
-					assert.Error(t, err)
-					assert.Contains(t, err.Error(), tc.expectedError)
-					return
-				}
-
-				assert.NoError(t, err)
-				assert.NotNil(t, msg)
+			if tc.expectError {
+				assert.Error(t, err, "Expected an error for test case: %s", tc.name)
+				return
 			}
+
+			assert.NoError(t, err, "Did not expect an error for test case: %s", tc.name)
+			assert.NotNil(t, unmarshalledMsg)
+
+			// Assert that the unmarshalled message has the same content
+			assert.Equal(t, tc.expectedMsg.GetVersion(), unmarshalledMsg.GetVersion())
+			assert.Equal(t, tc.expectedMsg.GetEventType(), unmarshalledMsg.GetEventType())
+			assert.Equal(t, tc.expectedMsg.GetTimestamp(), unmarshalledMsg.GetTimestamp())
+			assert.Equal(t, tc.expectedMsg.GetPayload(), unmarshalledMsg.GetPayload())
+			assert.Equal(t, tc.expectedMsg.GetMetadata(), unmarshalledMsg.GetMetadata())
 		})
 	}
 }

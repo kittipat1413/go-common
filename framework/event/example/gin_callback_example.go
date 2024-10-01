@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/kittipat1413/go-common/framework/event"
-	"github.com/kittipat1413/go-common/framework/event/handler"
+	callbackhandler "github.com/kittipat1413/go-common/framework/event/custom_handler/callback"
+	httphandler "github.com/kittipat1413/go-common/framework/event/http_handler"
 
 	"github.com/gin-gonic/gin"
 )
@@ -83,11 +84,11 @@ func eventHandler() gin.HandlerFunc {
 	httpClient := &http.Client{
 		Timeout: 2 * time.Second,
 	}
-	eventHandler := event.NewEventHandler(
-		event.WithHTTPClient(httpClient),
-		event.WithCallbackConfig(2, 1*time.Second, 1*time.Minute),
+	eventHandler := callbackhandler.NewEventHandler(
+		callbackhandler.WithHTTPClient[MyPayload](httpClient),
+		callbackhandler.WithCallbackConfig[MyPayload](2, 1*time.Second, 1*time.Minute),
 	)
-	return handler.NewGinEventHandler(businessLogic, eventHandler)
+	return httphandler.NewGinEventHandler(businessLogic, eventHandler)
 }
 func businessLogic(ctx *gin.Context, msg event.EventMessage[MyPayload]) error {
 	// Access the payload
