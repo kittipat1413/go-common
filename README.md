@@ -47,7 +47,7 @@ Provides a standardized logging interface using a structured logger (e.g., logru
   - Structured logging with fields.
   - Support for log rotation and output destinations.
 
-### Tracer
+### [Tracer](/framework/trace/)
 Implements distributed tracing capabilities to monitor and debug microservices.
 - Features:
   - Integrates with tracing systems like OpenTelemetry.
@@ -61,10 +61,11 @@ Standardizes error handling and HTTP responses.
   - Unified response structure.
   - Integration with Gin middleware.
 
-### Event Package
+### [Event Package](/framework//event/)
 Handles event-driven workflows, including message parsing and callback mechanisms.
 - Features:
-  - Versioned event message parsing.
+  - Integration with HTTP frameworks (like Gin).
+  - Defining and processing event messages with flexible, user-defined payload types.
   - Generic payload support with Go generics.
 
 ### Utilities
