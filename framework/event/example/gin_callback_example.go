@@ -1,4 +1,3 @@
-// gin_example.go
 package main
 
 import (
