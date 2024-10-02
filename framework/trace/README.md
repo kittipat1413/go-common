@@ -18,7 +18,7 @@ if err != nil {
 }
 defer tracerProvider.Shutdown(ctx)
 ```
-> You can also set the `OTEL_SERVICE_NAME` environment variable to override the service name dynamically.
+> You can also set the `OTEL_SERVICE_NAME` environment variable to override the service name dynamically. Additionally, you can set the `OTEL_RESOURCE_ATTRIBUTES` environment variable to specify additional resource attributes.
 ### 2. Function-Level Tracing (`TraceFunc`)
 Wrap any function in TraceFunc to automatically trace its execution:
 ```go
