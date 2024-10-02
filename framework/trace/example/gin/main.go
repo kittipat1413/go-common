@@ -49,7 +49,9 @@ func main() {
 	r.POST("/process", myGinHandler)
 
 	// Run the Gin server
-	r.Run(":8080")
+	if err := r.Run(":8080"); err != nil {
+		fmt.Printf("Failed to run server: %v\n", err)
+	}
 }
 
 // Handler function to process the request and call another traced function
