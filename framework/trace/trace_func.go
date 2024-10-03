@@ -14,7 +14,7 @@ import (
 // It works with any function that returns a result and an error.
 func TraceFunc[T any](ctx context.Context, tracer trace.Tracer, f func(ctx context.Context) (T, error)) (T, error) {
 	if tracer == nil {
-		tracer = defaultTracer
+		tracer = DefaultTracer()
 	}
 
 	fnName := getFunctionName(f)
