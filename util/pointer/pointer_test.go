@@ -1,9 +1,10 @@
-package pointer
+package pointer_test
 
 import (
 	"testing"
 	"time"
 
+	"github.com/kittipat1413/go-common/util/pointer"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,7 +38,7 @@ func Test_Internal_ToPointer(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := ToPointer(test.have)
+			got := pointer.ToPointer(test.have)
 			assert.Equal(t, test.want, *got)
 		})
 
@@ -108,15 +109,15 @@ func Test_Internal_GetValue(t *testing.T) {
 			var got any
 			switch v := test.have.(type) {
 			case *int:
-				got = GetValue(v)
+				got = pointer.GetValue(v)
 			case *string:
-				got = GetValue(v)
+				got = pointer.GetValue(v)
 			case *bool:
-				got = GetValue(v)
+				got = pointer.GetValue(v)
 			case *time.Time:
-				got = GetValue(v)
+				got = pointer.GetValue(v)
 			default:
-				got = GetValue(&test.have)
+				got = pointer.GetValue(&test.have)
 			}
 			assert.Equal(t, test.want, got)
 		})
