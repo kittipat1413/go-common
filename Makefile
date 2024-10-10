@@ -8,7 +8,7 @@ install:
 precommit: lint test
 
 lint:
-	$(GOLINT) run
+	@$(GOLINT) run
 
 test:
 	@go test $(GO_FILES)/... -cover --race; \
