@@ -24,7 +24,7 @@ func TraceFunc[T any](ctx context.Context, tracer trace.Tracer, f func(ctx conte
 	result, err := f(ctx)
 
 	if err != nil {
-		span.RecordError(err)
+		span.RecordError(err, trace.WithStackTrace(true))
 		span.SetStatus(codes.Error, "Error executing function")
 	} else {
 		span.SetStatus(codes.Ok, "Function executed successfully")
