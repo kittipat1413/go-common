@@ -29,7 +29,7 @@ func NewGinEventHandler[T any](ginHandler GinEventHandlerFunc[T], eventHandler e
 		}
 
 		// Pre-processing
-		if err := eventHandler.BeforeHandle(ctx, msg); err != nil {
+		if err := eventHandler.BeforeHandle(ctx.Request.Context(), msg); err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -38,7 +38,7 @@ func NewGinEventHandler[T any](ginHandler GinEventHandlerFunc[T], eventHandler e
 		eventResult := ginHandler(ctx, msg)
 
 		// Post-processing
-		if err := eventHandler.AfterHandle(ctx, msg, eventResult); err != nil {
+		if err := eventHandler.AfterHandle(ctx.Request.Context(), msg, eventResult); err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
