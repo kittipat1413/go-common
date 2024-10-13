@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/kittipat1413/go-common/framework/event"
-	"github.com/kittipat1413/go-common/framework/logger"
+	common_logger "github.com/kittipat1413/go-common/framework/logger"
 )
 
 /*
@@ -34,11 +34,12 @@ type callbackConfig struct {
 type callbackEventHandler[T any] struct {
 	httpClient     *http.Client
 	callbackConfig callbackConfig
+	logger         common_logger.Logger
 }
 
 /*
 NewEventHandler creates a new event.EventHandler that sends callbacks based on the success or failure of an event.
-  - This handler has internal logging. It will try to extract a logger that implements logger.Logger from the context and use a default logger if none is provided.
+  - This handler supports internal logging; if a custom logger is provided via WithLogger, it will be used; otherwise, it will try to extract a logger from the context, and if none is found, a default logger will be used.
 */
 func NewEventHandler[T any](opts ...Option[T]) event.EventHandler[T] {
 	// Set default values
@@ -49,6 +50,7 @@ func NewEventHandler[T any](opts ...Option[T]) event.EventHandler[T] {
 			retryInterval:   defaultRetryInterval,
 			callbackTimeout: defaultCallbackTimeout,
 		},
+		logger: nil,
 	}
 
 	// Apply options
@@ -78,6 +80,15 @@ func WithCallbackConfig[T any](maxRetries int, retryInterval, callbackTimeout ti
 			maxRetries:      maxRetries,
 			retryInterval:   retryInterval,
 			callbackTimeout: callbackTimeout,
+		}
+	}
+}
+
+// WithLogger sets a custom logger.Logger implementation for the EventHandler. If not provided, the logger will be extracted from the context or a default will be used.
+func WithLogger[T any](customLogger common_logger.Logger) Option[T] {
+	return func(eh *callbackEventHandler[T]) {
+		if customLogger != nil {
+			eh.logger = customLogger
 		}
 	}
 }
@@ -138,35 +149,38 @@ func (eh *callbackEventHandler[T]) sendCallback(ctx context.Context, url string)
 	var resp *http.Response
 	var err error
 
-	log := logger.FromContext(ctx)
+	logger := eh.logger
+	if logger == nil {
+		logger = common_logger.FromContext(ctx)
+	}
 	for attempt := 0; attempt <= eh.callbackConfig.maxRetries; attempt++ {
 		req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if reqErr != nil {
-			log.Error(ctx, fmt.Sprintf("Failed to create request for callback to: %s", url), reqErr, nil)
+			logger.Error(ctx, fmt.Sprintf("Failed to create request for callback to: %s", url), reqErr, nil)
 			return
 		}
 
 		resp, err = eh.httpClient.Do(req)
 		if err != nil {
-			log.Error(ctx, fmt.Sprintf("Attempt %d: Failed to send callback to: %s", attempt+1, url), err, nil)
+			logger.Error(ctx, fmt.Sprintf("Attempt %d: Failed to send callback to: %s", attempt+1, url), err, nil)
 		} else {
 			// Read and discard the response body
 			_, err = io.Copy(io.Discard, resp.Body)
 			if err != nil {
-				log.Error(ctx, fmt.Sprintf("Attempt %d: Failed to read response body for callback to: %s", attempt+1, url), err, nil)
+				logger.Error(ctx, fmt.Sprintf("Attempt %d: Failed to read response body for callback to: %s", attempt+1, url), err, nil)
 				return
 			}
 			resp.Body.Close()
 
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				log.Info(ctx, fmt.Sprintf("Callback succeeded with status: %s", resp.Status), nil)
+				logger.Info(ctx, fmt.Sprintf("Callback succeeded with status: %s", resp.Status), nil)
 				return // success, exit the function
 			} else if resp.StatusCode >= 500 && resp.StatusCode < 600 {
 				// Server error, can retry
-				log.Info(ctx, fmt.Sprintf("Attempt %d: Server error for callback to %s: %s", attempt+1, url, resp.Status), nil)
+				logger.Info(ctx, fmt.Sprintf("Attempt %d: Server error for callback to %s: %s", attempt+1, url, resp.Status), nil)
 			} else {
 				// Client error or other non-retryable status
-				log.Info(ctx, fmt.Sprintf("Callback failed with status: %s", resp.Status), nil)
+				logger.Info(ctx, fmt.Sprintf("Callback failed with status: %s", resp.Status), nil)
 				return
 			}
 		}
@@ -179,7 +193,7 @@ func (eh *callbackEventHandler[T]) sendCallback(ctx context.Context, url string)
 
 			select {
 			case <-ctx.Done():
-				log.Info(ctx, fmt.Sprintf("Context canceled, aborting retries for callback to: %s", url), nil)
+				logger.Info(ctx, fmt.Sprintf("Context canceled, aborting retries for callback to: %s", url), nil)
 				return
 			case <-time.After(sleepDuration):
 				// Proceed to next attempt
@@ -187,5 +201,5 @@ func (eh *callbackEventHandler[T]) sendCallback(ctx context.Context, url string)
 		}
 	}
 
-	log.Info(ctx, fmt.Sprintf("All retries failed for callback to: %s", url), nil)
+	logger.Info(ctx, fmt.Sprintf("All retries failed for callback to: %s", url), nil)
 }
