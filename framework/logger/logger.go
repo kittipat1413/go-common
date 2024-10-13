@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"io"
 	"os"
 	"time"
 
@@ -25,6 +26,8 @@ with the following fields:
 
   - timestamp: formatted in RFC3339 format.
   - severity: the severity level of the log (e.g., info, debug, error).
+  - message: the log message.
+  - error: the error message for logs with error-level severity or higher.
   - trace_id: the trace identifier for correlating logs with distributed
     traces (if available).
   - span_id: the span identifier for correlating logs within specific spans
@@ -40,6 +43,7 @@ func NewDefaultLogger() Logger {
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     false,
 		},
+		Output: os.Stdout,
 	})
 	return defaultLog
 }
@@ -57,7 +61,7 @@ type Config struct {
 	// Level determines the minimum log level that will be processed by the logger.
 	// Logs with a level lower than this will be ignored.
 	Level LogLevel
-	// Formatter is as optional field for specifying a custom logrus formatter.
+	// Formatter is an optional field for specifying a custom logrus formatter.
 	// If not provided, the logger will use the ProductionFormatter by default.
 	Formatter logrus.Formatter
 	// Environment is an optional field for specifying the running environment (e.g., "production", "staging").
@@ -66,6 +70,9 @@ type Config struct {
 	// ServiceName is an optional field for specifying the name of the service.
 	// This field is used for adding service-specific fields to logs.
 	ServiceName string
+	// Output is an optional field for specifying the output destination for logs (e.g., os.Stdout, file).
+	// If not provided, logs will be written to stdout by default.
+	Output io.Writer
 }
 
 // NewLogger creates a new logger instance with the provided configuration.
@@ -85,8 +92,12 @@ func NewLogger(config Config) (Logger, error) {
 	// Set log level
 	logrusLogger.SetLevel(config.Level.ToLogrusLevel())
 
-	// Set output to stdout
-	logrusLogger.SetOutput(os.Stdout)
+	// Set output to the provided output or default to stdout
+	if config.Output != nil {
+		logrusLogger.SetOutput(config.Output)
+	} else {
+		logrusLogger.SetOutput(os.Stdout)
+	}
 
 	return &logger{
 		baselogger:  logrusLogger,
@@ -156,10 +167,10 @@ func (l *logger) logWithContext(ctx context.Context, level logrus.Level, msg str
 	}
 }
 
-// NoopLogger returns a no-op logger for tests.
 type noopLogger struct{}
 
-func NoopLogger() Logger {
+// NewNoopLogger returns a no-op logger that discards all log messages.
+func NewNoopLogger() Logger {
 	return &noopLogger{}
 }
 func (n *noopLogger) Debug(ctx context.Context, msg string, fields Fields)            {}
