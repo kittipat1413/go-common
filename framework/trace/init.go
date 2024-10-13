@@ -26,18 +26,20 @@ const (
 	ExporterGRPC   ExporterType = "grpc"
 )
 
-// InitTracerProvider initializes an OpenTelemetry TracerProvider with the specified service name, exporter type, and gRPC endpoint (if needed).
-// It supports both stdout and gRPC exporters and sets global tracing and propagation configurations.
-//
-// Params:
-// - ctx: Context for initialization, used for trace exporter creation and resource detection.
-// - serviceName: The name of the service being traced. Can be overridden by the environment variable `OTEL_SERVICE_NAME`.
-// - endpoint: The gRPC endpoint for trace exporters (only applicable for the gRPC exporter).
-// - exporterType: The type of exporter to use (either "stdout" or "grpc").
-//
-// Returns:
-// - *sdktrace.TracerProvider: A new tracer provider to manage tracing.
-// - error: An error if the initialization fails.
+/*
+InitTracerProvider initializes an OpenTelemetry TracerProvider with the specified service name, exporter type, and gRPC endpoint (if needed).
+It supports both stdout and gRPC exporters and sets global tracing and propagation configurations.
+
+Params:
+  - ctx: Context for initialization, used for trace exporter creation and resource detection.
+  - serviceName: The name of the service being traced. Can be overridden by the environment variable `OTEL_SERVICE_NAME`.
+  - endpoint: The gRPC endpoint for trace exporters (only applicable for the gRPC exporter).
+  - exporterType: The type of exporter to use (either "stdout" or "grpc").
+
+Returns:
+  - *sdktrace.TracerProvider: A new tracer provider to manage tracing.
+  - error: An error if the initialization fails.
+*/
 func InitTracerProvider(ctx context.Context, serviceName string, endpoint *string, exporterType ExporterType) (*sdktrace.TracerProvider, error) {
 	if envServiceName := os.Getenv("OTEL_SERVICE_NAME"); envServiceName != "" {
 		serviceName = envServiceName
