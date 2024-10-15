@@ -40,12 +40,14 @@ func main() {
 ```
 
 ## Modules and Packages
-### Logger
-Provides a standardized logging interface using a structured logger (e.g., logrus or zap).
+### [Logger](/framework/logger/)
+Provides a structured, context-aware logging interface using logrus. Designed for both development and production environments.
 - Features:
   - Configurable log levels.
   - Structured logging with fields.
-  - Support for log rotation and output destinations.
+  - Context propagation for tracing (trace_id, span_id).
+  - Flexible output destinations (stdout, files, etc.).
+  - No-op logger for testing.
 
 ### [Tracer](/framework/trace/)
 Implements distributed tracing capabilities to monitor and debug microservices.
