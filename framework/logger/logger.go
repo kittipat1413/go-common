@@ -4,14 +4,15 @@ import (
 	"context"
 	"io"
 	"os"
+	"sync"
 	"time"
 
-	"github.com/kittipat1413/go-common/framework/logger/formatter"
 	"github.com/sirupsen/logrus"
 )
 
 //go:generate mockgen -source=./logger.go -destination=./mocks/logger.go -package=logger_mocks
 type Logger interface {
+	WithFields(fields Fields) Logger
 	Debug(ctx context.Context, msg string, fields Fields)
 	Info(ctx context.Context, msg string, fields Fields)
 	Warn(ctx context.Context, msg string, fields Fields)
@@ -19,8 +20,30 @@ type Logger interface {
 	Fatal(ctx context.Context, msg string, err error, fields Fields)
 }
 
+var (
+	// Default logger configuration.
+	defaultLoggerConfig = Config{
+		Level: INFO,
+		Formatter: &ProductionFormatter{
+			TimestampFormat: time.RFC3339,
+			PrettyPrint:     false,
+		},
+		Output: os.Stdout,
+	}
+	// Mutex for protecting the default logger configuration.
+	defaultLoggerMutex sync.RWMutex
+)
+
+// SetDefaultLoggerConfig allows users to set a custom configuration for the default logger.
+// This function can be called multiple times to update the configuration.
+func SetDefaultLoggerConfig(config Config) {
+	defaultLoggerMutex.Lock()
+	defer defaultLoggerMutex.Unlock()
+	defaultLoggerConfig = config
+}
+
 /*
-DefaultLogger returns a logger instance with default configuration.
+NewDefaultLogger returns a logger instance with default or user-defined configuration by calling SetDefaultLoggerConfig.
 The logger uses the ProductionFormatter, which outputs logs in JSON format
 with the following fields:
 
@@ -37,23 +60,19 @@ with the following fields:
     providing additional debugging context.
 */
 func NewDefaultLogger() Logger {
-	defaultLog, _ := NewLogger(Config{
-		Level: INFO,
-		Formatter: &formatter.ProductionFormatter{
-			TimestampFormat: time.RFC3339,
-			PrettyPrint:     false,
-		},
-		Output: os.Stdout,
-	})
+	defaultLoggerMutex.RLock()
+	config := defaultLoggerConfig
+	defaultLoggerMutex.RUnlock()
+
+	defaultLog, _ := NewLogger(config)
 	return defaultLog
 }
 
-// logger is implementation of Logger interface.
+// logger is the implementation of the Logger interface.
 type logger struct {
-	baselogger  *logrus.Logger
-	logLevel    LogLevel
-	environment string
-	serviceName string
+	baselogger *logrus.Logger
+	logLevel   LogLevel
+	fields     Fields
 }
 
 // Config holds the logger configuration.
@@ -79,36 +98,65 @@ type Config struct {
 func NewLogger(config Config) (Logger, error) {
 	logrusLogger := logrus.New()
 
-	// Set custom formatter if provided, otherwise use ProductionFormatter
+	// Set custom formatter if provided, otherwise use ProductionFormatter.
 	if config.Formatter != nil {
 		logrusLogger.SetFormatter(config.Formatter)
 	} else {
-		logrusLogger.SetFormatter(&formatter.ProductionFormatter{
+		logrusLogger.SetFormatter(&ProductionFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     false,
 		})
 	}
 
-	// Set log level
+	// Set log level.
 	logrusLogger.SetLevel(config.Level.ToLogrusLevel())
 
-	// Set output to the provided output or default to stdout
+	// Set output to the provided output or default to stdout.
 	if config.Output != nil {
 		logrusLogger.SetOutput(config.Output)
 	} else {
 		logrusLogger.SetOutput(os.Stdout)
 	}
 
+	// Add environment and service name fields to the logger.
+	fields := make(Fields)
+	if config.Environment != "" {
+		fields[DefaultEnvironmentKey] = config.Environment
+	}
+	if config.ServiceName != "" {
+		fields[DefaultServiceNameKey] = config.ServiceName
+	}
+
 	return &logger{
-		baselogger:  logrusLogger,
-		logLevel:    config.Level,
-		environment: config.Environment,
-		serviceName: config.ServiceName,
+		baselogger: logrusLogger,
+		logLevel:   config.Level,
+		fields:     fields,
 	}, nil
 }
 
+// clone creates a deep copy of the logger.
+func (l *logger) clone() *logger {
+	c := *l
+	// Deep copy the fields map.
+	c.fields = make(Fields, len(l.fields))
+	for k, v := range l.fields {
+		c.fields[k] = v
+	}
+	return &c
+}
+
 // Fields represents a key-value pair for structured logging.
-type Fields map[string]any
+type Fields map[string]interface{}
+
+// WithFields returns a new logger that includes the provided fields.
+func (l *logger) WithFields(fields Fields) Logger {
+	clone := l.clone()
+	// Add new fields to the cloned logger's fields.
+	for key, value := range fields {
+		clone.fields[key] = value
+	}
+	return clone
+}
 
 // Debug logs a message at the Debug level.
 func (l *logger) Debug(ctx context.Context, msg string, fields Fields) {
@@ -130,7 +178,9 @@ func (l *logger) Error(ctx context.Context, msg string, err error, fields Fields
 	if fields == nil {
 		fields = Fields{}
 	}
-	fields[logrus.ErrorKey] = err
+	if err != nil {
+		fields[DefaultErrorKey] = err
+	}
 	l.logWithContext(ctx, logrus.ErrorLevel, msg, fields)
 }
 
@@ -139,20 +189,27 @@ func (l *logger) Fatal(ctx context.Context, msg string, err error, fields Fields
 	if fields == nil {
 		fields = Fields{}
 	}
-	fields[logrus.ErrorKey] = err
+	if err != nil {
+		fields[DefaultErrorKey] = err
+	}
 	l.logWithContext(ctx, logrus.FatalLevel, msg, fields)
 }
 
 // logWithContext logs a message with the provided context and fields.
 func (l *logger) logWithContext(ctx context.Context, level logrus.Level, msg string, fields Fields) {
-	entry := l.baselogger.WithContext(ctx).WithFields(logrus.Fields(fields))
-	// Add optional environment and service_name fields if provided
-	if l.environment != "" {
-		entry = entry.WithField(environmentKey, l.environment)
+	entry := l.baselogger.WithContext(ctx)
+
+	// Merge logger's fields with input fields.
+	mergedFields := make(Fields, len(l.fields)+len(fields))
+	for k, v := range l.fields {
+		mergedFields[k] = v
 	}
-	if l.serviceName != "" {
-		entry = entry.WithField(serviceNameKey, l.serviceName)
+	for k, v := range fields {
+		mergedFields[k] = v
 	}
+	entry = entry.WithFields(logrus.Fields(mergedFields))
+
+	// Log the message at the specified level.
 	switch level {
 	case logrus.DebugLevel:
 		entry.Debug(msg)
@@ -173,6 +230,7 @@ type noopLogger struct{}
 func NewNoopLogger() Logger {
 	return &noopLogger{}
 }
+func (n *noopLogger) WithFields(fields Fields) Logger                                 { return n }
 func (n *noopLogger) Debug(ctx context.Context, msg string, fields Fields)            {}
 func (n *noopLogger) Info(ctx context.Context, msg string, fields Fields)             {}
 func (n *noopLogger) Warn(ctx context.Context, msg string, fields Fields)             {}

@@ -24,8 +24,20 @@ func (l LogLevel) ToLogrusLevel() logrus.Level {
 	return logrusLevelMapper[l]
 }
 
-// Fields is a map of fields to add to a log entry.
 const (
-	environmentKey = "environment"
-	serviceNameKey = "service_name"
+	// DefaultEnvironmentKey is the default key used for the environment field in logs.
+	DefaultEnvironmentKey = "environment"
+	// DefaultServiceNameKey is the default key used for the service name field in logs.
+	DefaultServiceNameKey = "service_name"
+	// DefaultErrorKey is the default key used for the error field in logs.
+	DefaultErrorKey = "error"
 )
+
+// FieldKeyFormatter is a function type that allows users to customize log field keys.
+type FieldKeyFormatter func(key string) string
+
+// NoopFieldKeyFormatter is the default implementation of FieldKeyFormatter,
+// which returns the key unchanged.
+func NoopFieldKeyFormatter(defaultKey string) string {
+	return defaultKey
+}

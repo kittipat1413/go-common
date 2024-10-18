@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/kittipat1413/go-common/framework/logger"
-	"github.com/kittipat1413/go-common/framework/logger/formatter"
 )
 
 /*
@@ -53,9 +52,23 @@ func main() {
 	// Initialize logger with JSON formatter and info level
 	logConfig := logger.Config{
 		Level: logger.DEBUG,
-		Formatter: &formatter.ProductionFormatter{
+		Formatter: &logger.ProductionFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     true,
+			FieldKeyFormatter: func(key string) string {
+				switch key {
+				case logger.DefaultEnvironmentKey:
+					return "env"
+				case logger.DefaultProdFmtSeverityKey:
+					return "level"
+				case logger.DefaultProdFmtMessageKey:
+					return "msg"
+				case logger.DefaultProdFmtErrorKey:
+					return "err"
+				default:
+					return key
+				}
+			},
 		},
 		Environment: "development",
 		ServiceName: "logger-example",

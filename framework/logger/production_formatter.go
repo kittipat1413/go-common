@@ -1,4 +1,4 @@
-package formatter
+package logger
 
 import (
 	"context"
@@ -31,86 +31,95 @@ type ProductionFormatter struct {
 	PrettyPrint bool
 	// SkipPackages is a list of packages to skip when searching for the caller.
 	SkipPackages []string
+	// FieldKeyFormatter is a function type that allows users to customize log field keys.
+	FieldKeyFormatter FieldKeyFormatter
 }
-
-type ProdFmtKey string
 
 const (
-	timestampKey  ProdFmtKey = "timestamp"
-	severityKey   ProdFmtKey = "severity"
-	messageKey    ProdFmtKey = "message"
-	errorKey      ProdFmtKey = "error"
-	traceIDKey    ProdFmtKey = "trace_id"
-	spanIDKey     ProdFmtKey = "span_id"
-	callerKey     ProdFmtKey = "caller"
-	callerFuncKey ProdFmtKey = "function"
-	callerFileKey ProdFmtKey = "file"
-	stackTraceKey ProdFmtKey = "stack_trace"
+	DefaultProdFmtTimestampKey  = "timestamp"
+	DefaultProdFmtSeverityKey   = "severity"
+	DefaultProdFmtMessageKey    = "message"
+	DefaultProdFmtErrorKey      = "error"
+	DefaultProdFmtTraceIDKey    = "trace_id"
+	DefaultProdFmtSpanIDKey     = "span_id"
+	DefaultProdFmtCallerKey     = "caller"
+	DefaultProdFmtCallerFuncKey = "function"
+	DefaultProdFmtCallerFileKey = "file"
+	DefaultProdFmtStackTraceKey = "stack_trace"
 )
 
-func (k ProdFmtKey) String() string {
-	return string(k)
-}
-
-var defaultSkipPackages = []string{
+var defaultProdFmtSkipPackages = []string{
 	"github.com/sirupsen/logrus",
 	"github.com/kittipat1413/go-common/framework/logger",
 }
 
+// Format implements the logrus.Formatter interface.
 func (f *ProductionFormatter) Format(entry *logrus.Entry) ([]byte, error) {
-	// 7 is the number of additional fields added by this formatter
+	// Use the default field key formatter if not provided.
+	if f.FieldKeyFormatter == nil {
+		f.FieldKeyFormatter = NoopFieldKeyFormatter
+	}
+
+	// Prepare the data map for JSON serialization.
 	data := make(logrus.Fields, len(entry.Data)+7)
-	// Copy all fields to the data map
-	for k, v := range entry.Data {
-		switch v := v.(type) {
+
+	// Apply FieldKeyFormatter to keys in entry.Data and copy them to data.
+	for key, value := range entry.Data {
+		formattedKey := f.FieldKeyFormatter(key)
+		switch v := value.(type) {
 		case error:
-			data[k] = v.Error()
+			data[formattedKey] = v.Error()
 		default:
-			data[k] = v
+			data[formattedKey] = v
 		}
 	}
 
-	data[timestampKey.String()] = entry.Time.Format(f.TimestampFormat)
-	data[severityKey.String()] = entry.Level.String()
-	data[messageKey.String()] = entry.Message
+	// Add predefined keys with formatted keys.
+	data[f.FieldKeyFormatter(DefaultProdFmtTimestampKey)] = entry.Time.Format(f.TimestampFormat)
+	data[f.FieldKeyFormatter(DefaultProdFmtSeverityKey)] = entry.Level.String()
+	data[f.FieldKeyFormatter(DefaultProdFmtMessageKey)] = entry.Message
 
-	// Include error message if present
-	if err, ok := entry.Data[logrus.ErrorKey]; ok {
+	// Include error message if present.
+	if err, ok := entry.Data[DefaultErrorKey]; ok {
+		formattedErrorKey := f.FieldKeyFormatter(DefaultProdFmtErrorKey)
 		switch e := err.(type) {
 		case error:
-			data[errorKey.String()] = e.Error()
+			data[formattedErrorKey] = e.Error()
 		default:
-			data[errorKey.String()] = fmt.Sprintf("%v", e)
+			data[formattedErrorKey] = fmt.Sprintf("%v", e)
 		}
 	}
 
-	// Include trace and span IDs if available
+	// Include trace and span IDs if available.
 	if entry.Context != nil {
 		traceID, spanID := extractTraceIDs(entry.Context)
 		if traceID != nil {
-			data[traceIDKey.String()] = traceID
+			data[f.FieldKeyFormatter(DefaultProdFmtTraceIDKey)] = *traceID
 		}
 		if spanID != nil {
-			data[spanIDKey.String()] = spanID
+			data[f.FieldKeyFormatter(DefaultProdFmtSpanIDKey)] = *spanID
 		}
 	}
 
-	// Combine default and custom SkipPackages
-	skipPackages := slice.Union(f.SkipPackages, defaultSkipPackages)
-	// Caller's function name, file, and line number
+	// Combine default and custom SkipPackages.
+	skipPackages := slice.Union(f.SkipPackages, defaultProdFmtSkipPackages)
+
+	// Caller's function name, file, and line number.
 	function, file, line := getCaller(skipPackages)
 	if function != "" && file != "" && line != 0 {
-		data[callerKey.String()] = map[string]string{
-			callerFuncKey.String(): function,
-			callerFileKey.String(): fmt.Sprintf("%s:%d", file, line),
+		callerInfo := map[string]string{
+			f.FieldKeyFormatter(DefaultProdFmtCallerFuncKey): function,
+			f.FieldKeyFormatter(DefaultProdFmtCallerFileKey): fmt.Sprintf("%s:%d", file, line),
 		}
+		data[f.FieldKeyFormatter(DefaultProdFmtCallerKey)] = callerInfo
 	}
 
-	// Stack trace for error levels
+	// Stack trace for error levels.
 	if entry.Level <= logrus.ErrorLevel {
-		data[stackTraceKey.String()] = getStackTrace()
+		data[f.FieldKeyFormatter(DefaultProdFmtStackTraceKey)] = getStackTrace()
 	}
 
+	// Serialize the data to JSON.
 	var serialized []byte
 	var err error
 	if f.PrettyPrint {
@@ -127,8 +136,8 @@ func (f *ProductionFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 // extractTraceIDs retrieves the trace and span IDs from the context.
 func extractTraceIDs(ctx context.Context) (*string, *string) {
 	span := trace.SpanFromContext(ctx)
-	if !span.IsRecording() {
-		return nil, nil // No active span
+	if !span.SpanContext().IsValid() {
+		return nil, nil // No valid span
 	}
 
 	var traceID, spanID string
@@ -146,7 +155,7 @@ func extractTraceIDs(ctx context.Context) (*string, *string) {
 // getStackTrace retrieves the current stack trace.
 func getStackTrace() string {
 	bufSize := 1024
-	maxBufSize := 32 * 1024 // 64 KB upper limit
+	maxBufSize := 32 * 1024 // 32 KB upper limit
 	for bufSize <= maxBufSize {
 		buf := make([]byte, bufSize)
 		n := runtime.Stack(buf, false)
