@@ -12,8 +12,26 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const (
+	DefaultSJsonFmtTimestampKey  = "timestamp"
+	DefaultSJsonFmtSeverityKey   = "severity"
+	DefaultSJsonFmtMessageKey    = "message"
+	DefaultSJsonFmtErrorKey      = "error"
+	DefaultSJsonFmtTraceIDKey    = "trace_id"
+	DefaultSJsonFmtSpanIDKey     = "span_id"
+	DefaultSJsonFmtCallerKey     = "caller"
+	DefaultSJsonFmtCallerFuncKey = "function"
+	DefaultSJsonFmtCallerFileKey = "file"
+	DefaultSJsonFmtStackTraceKey = "stack_trace"
+)
+
+var defaultSJsonFmtSkipPackages = []string{
+	"github.com/sirupsen/logrus",
+	"github.com/kittipat1413/go-common/framework/logger",
+}
+
 /*
-ProductionFormatter is a custom logrus formatter for production use.
+StructuredJSONFormatter is a custom logrus formatter for structured JSON logs.
 It includes the following fields:
   - timestamp: The log timestamp in the specified format.
   - severity: The log severity level (e.g., info, debug, error).
@@ -24,7 +42,7 @@ It includes the following fields:
   - caller: The caller's function name, file, and line number.
   - stack_trace: The stack trace for error levels.
 */
-type ProductionFormatter struct {
+type StructuredJSONFormatter struct {
 	// TimestampFormat sets the format used for marshaling timestamps.
 	TimestampFormat string
 	// PrettyPrint will indent all JSON logs.
@@ -35,26 +53,25 @@ type ProductionFormatter struct {
 	FieldKeyFormatter FieldKeyFormatter
 }
 
-const (
-	DefaultProdFmtTimestampKey  = "timestamp"
-	DefaultProdFmtSeverityKey   = "severity"
-	DefaultProdFmtMessageKey    = "message"
-	DefaultProdFmtErrorKey      = "error"
-	DefaultProdFmtTraceIDKey    = "trace_id"
-	DefaultProdFmtSpanIDKey     = "span_id"
-	DefaultProdFmtCallerKey     = "caller"
-	DefaultProdFmtCallerFuncKey = "function"
-	DefaultProdFmtCallerFileKey = "file"
-	DefaultProdFmtStackTraceKey = "stack_trace"
-)
+/*
+FieldKeyFormatter is a function type that allows users to customize the keys of log fields.
 
-var defaultProdFmtSkipPackages = []string{
-	"github.com/sirupsen/logrus",
-	"github.com/kittipat1413/go-common/framework/logger",
+Example usage:
+
+	customFieldKeyFormatter := func(key string) string {
+		return strings.ToUpper(key)
+	}
+*/
+type FieldKeyFormatter func(key string) string
+
+// NoopFieldKeyFormatter is the default implementation of FieldKeyFormatter.
+// It returns the key unchanged, effectively performing no operation on the key.
+func NoopFieldKeyFormatter(defaultKey string) string {
+	return defaultKey
 }
 
 // Format implements the logrus.Formatter interface.
-func (f *ProductionFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+func (f *StructuredJSONFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	// Use the default field key formatter if not provided.
 	if f.FieldKeyFormatter == nil {
 		f.FieldKeyFormatter = NoopFieldKeyFormatter
@@ -65,6 +82,9 @@ func (f *ProductionFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 
 	// Apply FieldKeyFormatter to keys in entry.Data and copy them to data.
 	for key, value := range entry.Data {
+		if key == DefaultErrorKey {
+			continue // Skip the default error key
+		}
 		formattedKey := f.FieldKeyFormatter(key)
 		switch v := value.(type) {
 		case error:
@@ -75,13 +95,13 @@ func (f *ProductionFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	}
 
 	// Add predefined keys with formatted keys.
-	data[f.FieldKeyFormatter(DefaultProdFmtTimestampKey)] = entry.Time.Format(f.TimestampFormat)
-	data[f.FieldKeyFormatter(DefaultProdFmtSeverityKey)] = entry.Level.String()
-	data[f.FieldKeyFormatter(DefaultProdFmtMessageKey)] = entry.Message
+	data[f.FieldKeyFormatter(DefaultSJsonFmtTimestampKey)] = entry.Time.Format(f.TimestampFormat)
+	data[f.FieldKeyFormatter(DefaultSJsonFmtSeverityKey)] = entry.Level.String()
+	data[f.FieldKeyFormatter(DefaultSJsonFmtMessageKey)] = entry.Message
 
 	// Include error message if present.
 	if err, ok := entry.Data[DefaultErrorKey]; ok {
-		formattedErrorKey := f.FieldKeyFormatter(DefaultProdFmtErrorKey)
+		formattedErrorKey := f.FieldKeyFormatter(DefaultSJsonFmtErrorKey)
 		switch e := err.(type) {
 		case error:
 			data[formattedErrorKey] = e.Error()
@@ -94,29 +114,29 @@ func (f *ProductionFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	if entry.Context != nil {
 		traceID, spanID := extractTraceIDs(entry.Context)
 		if traceID != nil {
-			data[f.FieldKeyFormatter(DefaultProdFmtTraceIDKey)] = *traceID
+			data[f.FieldKeyFormatter(DefaultSJsonFmtTraceIDKey)] = *traceID
 		}
 		if spanID != nil {
-			data[f.FieldKeyFormatter(DefaultProdFmtSpanIDKey)] = *spanID
+			data[f.FieldKeyFormatter(DefaultSJsonFmtSpanIDKey)] = *spanID
 		}
 	}
 
 	// Combine default and custom SkipPackages.
-	skipPackages := slice.Union(f.SkipPackages, defaultProdFmtSkipPackages)
+	skipPackages := slice.Union(f.SkipPackages, defaultSJsonFmtSkipPackages)
 
 	// Caller's function name, file, and line number.
 	function, file, line := getCaller(skipPackages)
 	if function != "" && file != "" && line != 0 {
 		callerInfo := map[string]string{
-			f.FieldKeyFormatter(DefaultProdFmtCallerFuncKey): function,
-			f.FieldKeyFormatter(DefaultProdFmtCallerFileKey): fmt.Sprintf("%s:%d", file, line),
+			f.FieldKeyFormatter(DefaultSJsonFmtCallerFuncKey): function,
+			f.FieldKeyFormatter(DefaultSJsonFmtCallerFileKey): fmt.Sprintf("%s:%d", file, line),
 		}
-		data[f.FieldKeyFormatter(DefaultProdFmtCallerKey)] = callerInfo
+		data[f.FieldKeyFormatter(DefaultSJsonFmtCallerKey)] = callerInfo
 	}
 
 	// Stack trace for error levels.
 	if entry.Level <= logrus.ErrorLevel {
-		data[f.FieldKeyFormatter(DefaultProdFmtStackTraceKey)] = getStackTrace()
+		data[f.FieldKeyFormatter(DefaultSJsonFmtStackTraceKey)] = getStackTrace()
 	}
 
 	// Serialize the data to JSON.

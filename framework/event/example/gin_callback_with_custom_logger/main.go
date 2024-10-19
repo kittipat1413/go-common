@@ -9,7 +9,6 @@ import (
 	callbackhandler "github.com/kittipat1413/go-common/framework/event/custom_handler/callback"
 	httphandler "github.com/kittipat1413/go-common/framework/event/http_handler"
 	"github.com/kittipat1413/go-common/framework/logger"
-	"github.com/kittipat1413/go-common/framework/logger/formatter"
 
 	"github.com/gin-gonic/gin"
 )
@@ -60,7 +59,7 @@ func main() {
 	// Initialize logger with JSON formatter and info level
 	logConfig := logger.Config{
 		Level: logger.DEBUG,
-		Formatter: &formatter.ProductionFormatter{
+		Formatter: &logger.StructuredJSONFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     true,
 		},

@@ -94,3 +94,17 @@ func (mr *MockLoggerMockRecorder) Warn(ctx, msg, fields interface{}) *gomock.Cal
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Warn", reflect.TypeOf((*MockLogger)(nil).Warn), ctx, msg, fields)
 }
+
+// WithFields mocks base method.
+func (m *MockLogger) WithFields(fields logger.Fields) logger.Logger {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithFields", fields)
+	ret0, _ := ret[0].(logger.Logger)
+	return ret0
+}
+
+// WithFields indicates an expected call of WithFields.
+func (mr *MockLoggerMockRecorder) WithFields(fields interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithFields", reflect.TypeOf((*MockLogger)(nil).WithFields), fields)
+}

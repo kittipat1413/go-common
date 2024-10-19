@@ -13,7 +13,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-func TestProductionFormatter__WithCustomFieldKeyFormatter(t *testing.T) {
+func TestStructuredJSONFormatter_WithCustomFieldKeyFormatter(t *testing.T) {
 	buffer := &bytes.Buffer{}
 
 	customFieldKeyFormatter := func(key string) string {
@@ -22,7 +22,7 @@ func TestProductionFormatter__WithCustomFieldKeyFormatter(t *testing.T) {
 
 	log, err := logger.NewLogger(logger.Config{
 		Level: logger.INFO,
-		Formatter: &logger.ProductionFormatter{
+		Formatter: &logger.StructuredJSONFormatter{
 			TimestampFormat:   time.RFC3339,
 			PrettyPrint:       false,
 			FieldKeyFormatter: customFieldKeyFormatter,
@@ -60,11 +60,11 @@ func TestProductionFormatter__WithCustomFieldKeyFormatter(t *testing.T) {
 	assert.Equal(t, "info", logEntry["SEVERITY"], "severity should match")
 }
 
-func TestLogger_WithTraceAndSpanIDs(t *testing.T) {
+func TestStructuredJSONFormatter_WithTraceAndSpanIDs(t *testing.T) {
 	buffer := &bytes.Buffer{}
 	log, err := logger.NewLogger(logger.Config{
 		Level: logger.INFO,
-		Formatter: &logger.ProductionFormatter{
+		Formatter: &logger.StructuredJSONFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     false,
 		},

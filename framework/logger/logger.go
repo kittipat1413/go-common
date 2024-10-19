@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"sync"
@@ -21,10 +22,14 @@ type Logger interface {
 }
 
 var (
+	ErrInvalidLogLevel = errors.New("invalid log level")
+)
+
+var (
 	// Default logger configuration.
 	defaultLoggerConfig = Config{
 		Level: INFO,
-		Formatter: &ProductionFormatter{
+		Formatter: &StructuredJSONFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     false,
 		},
@@ -34,30 +39,37 @@ var (
 	defaultLoggerMutex sync.RWMutex
 )
 
-// SetDefaultLoggerConfig allows users to set a custom configuration for the default logger.
-// This function can be called multiple times to update the configuration.
-func SetDefaultLoggerConfig(config Config) {
+// SetDefaultLoggerConfig tries to set a custom configuration for the default logger.
+// If creating a logger with the provided config fails, the default configuration remains unchanged.
+func SetDefaultLoggerConfig(config Config) error {
+	// Lock the mutex to protect the defaultLoggerConfig.
 	defaultLoggerMutex.Lock()
 	defer defaultLoggerMutex.Unlock()
+
+	// Try to create a logger with the new configuration.
+	_, err := NewLogger(config)
+	if err != nil {
+		// If there is an error, keep the original configuration unchanged.
+		return err
+	}
+	// If logger creation is successful, update the default configuration.
 	defaultLoggerConfig = config
+	return nil
 }
 
 /*
-NewDefaultLogger returns a logger instance with default or user-defined configuration by calling SetDefaultLoggerConfig.
-The logger uses the ProductionFormatter, which outputs logs in JSON format
-with the following fields:
+NewDefaultLogger returns a logger instance with the default or user-defined configuration.
+If SetDefaultLoggerConfig has been called, it uses the user-defined configuration; otherwise, it uses the package's default configuration.
+The default logger configuration uses the StructuredJSONFormatter, which outputs logs in JSON format with the following fields:
 
   - timestamp: formatted in RFC3339 format.
   - severity: the severity level of the log (e.g., info, debug, error).
   - message: the log message.
   - error: the error message for logs with error-level severity or higher.
-  - trace_id: the trace identifier for correlating logs with distributed
-    traces (if available).
-  - span_id: the span identifier for correlating logs within specific spans
-    of a trace (if available).
+  - trace_id: the trace identifier for correlating logs with distributed traces (if available).
+  - span_id: the span identifier for correlating logs within specific spans of a trace (if available).
   - caller: the function, file, and line number where the log was generated.
-  - stack_trace: included for logs with error-level severity or higher,
-    providing additional debugging context.
+  - stack_trace: included for logs with error-level severity or higher, providing additional debugging context.
 */
 func NewDefaultLogger() Logger {
 	defaultLoggerMutex.RLock()
@@ -81,7 +93,7 @@ type Config struct {
 	// Logs with a level lower than this will be ignored.
 	Level LogLevel
 	// Formatter is an optional field for specifying a custom logrus formatter.
-	// If not provided, the logger will use the ProductionFormatter by default.
+	// If not provided, the logger will use the StructuredJSONFormatter by default.
 	Formatter logrus.Formatter
 	// Environment is an optional field for specifying the running environment (e.g., "production", "staging").
 	// This field is used for adding environment-specific fields to logs.
@@ -98,17 +110,20 @@ type Config struct {
 func NewLogger(config Config) (Logger, error) {
 	logrusLogger := logrus.New()
 
-	// Set custom formatter if provided, otherwise use ProductionFormatter.
+	// Set custom formatter if provided, otherwise use StructuredJSONFormatter.
 	if config.Formatter != nil {
 		logrusLogger.SetFormatter(config.Formatter)
 	} else {
-		logrusLogger.SetFormatter(&ProductionFormatter{
+		logrusLogger.SetFormatter(&StructuredJSONFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     false,
 		})
 	}
 
 	// Set log level.
+	if !config.Level.IsValid() {
+		return nil, ErrInvalidLogLevel
+	}
 	logrusLogger.SetLevel(config.Level.ToLogrusLevel())
 
 	// Set output to the provided output or default to stdout.

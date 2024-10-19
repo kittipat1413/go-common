@@ -9,7 +9,7 @@ The logger package provides a structured, context-aware logging solution for Go 
 ## Features
 - **Structured Logging**: Outputs logs in JSON format, making them easy to parse and analyze.
 - **Context-Aware**: Supports logging with `context.Context`, allowing you to include tracing information automatically.
-- **Customizable Formatter**: Use the default `ProductionFormatter` or provide your own formatter to customize the log output.
+- **Customizable Formatter**: Use the default `StructuredJSONFormatter` or provide your own formatter to customize the log output.
 - **Environment and Service Name**: Optionally include environment and service name in your logs for better traceability.
 - **No-Op Logger**: Provides a no-operation logger for testing purposes, which discards all log messages.
 
@@ -20,13 +20,12 @@ You can create a logger using the `NewLogger` function, providing a `Config` str
 ```golang
 import (
     "github.com/kittipat1413/go-common/framework/logger"
-    "github.com/kittipat1413/go-common/framework/logger/formatter"
     "time"
 )
 
 logConfig := logger.Config{
     Level: logger.INFO,
-    Formatter: &formatter.ProductionFormatter{
+    Formatter: &logger.StructuredJSONFormatter{
         TimestampFormat: time.RFC3339,
         PrettyPrint:     false,
     },
@@ -44,6 +43,18 @@ Alternatively, you can use the default logger:
 ```golang
 log := logger.NewDefaultLogger()
 ```
+- The `NewDefaultLogger` returns a logger instance with the default or user-defined configuration.
+- If `SetDefaultLoggerConfig` has been called, it uses the user-defined configuration; otherwise, it uses the package's default configuration.
+
+### Updating the Default Logger Configuration
+You can update the default logger configuration using SetDefaultLoggerConfig:
+```golang
+err := logger.SetDefaultLoggerConfig(logConfig)
+if err != nil {
+    // Handle error
+    panic(err)
+}
+```
 
 ## Configuration
 The Config struct allows you to customize the logger:
@@ -53,7 +64,7 @@ type Config struct {
 	// Logs with a level lower than this will be ignored.
 	Level LogLevel
 	// Formatter is an optional field for specifying a custom logrus formatter.
-	// If not provided, the logger will use the ProductionFormatter by default.
+	// If not provided, the logger will use the StructuredJSONFormatter by default.
 	Formatter logrus.Formatter
 	// Environment is an optional field for specifying the running environment (e.g., "production", "staging").
 	// This field is used for adding environment-specific fields to logs.
@@ -71,6 +82,7 @@ type Config struct {
 The logger provides methods for different log levels:
 ```golang
 type Logger interface {
+    WithFields(fields Fields) Logger
 	Debug(ctx context.Context, msg string, fields Fields)
 	Info(ctx context.Context, msg string, fields Fields)
 	Warn(ctx context.Context, msg string, fields Fields)
@@ -91,36 +103,57 @@ For error and fatal logs, you can include an error object:
 err := errors.New("something went wrong")
 log.Error(ctx, "Failed to process request", err, fields)
 ```
+### Adding Persistent Fields
+You can add persistent fields to the logger using WithFields, which returns a new logger instance:
+```golang
+logWithFields := log.WithFields(logger.Fields{
+    "component": "authentication",
+})
+logWithFields.Info(ctx, "Authentication successful", nil)
 
+```
 You can find a complete working example in the repository under [framework/logger/example](example/).
 
 ---
 
-## ProductionFormatter
-The `ProductionFormatter` is a custom `logrus.Formatter` designed for production environments. It outputs logs in JSON format with a standardized structure, making it suitable for log aggregation and analysis tools.
+## StructuredJSONFormatter
+The `StructuredJSONFormatter` is a custom `logrus.Formatter` designed to include contextual information in logs. It outputs logs in JSON format with a standardized structure, making it suitable for log aggregation and analysis tools.
 ### Features
 - **Timestamp**: Includes a timestamp formatted according to `TimestampFormat`.
 - **Severity**: The log level (`debug`, `info`, `warning`, `error`, `fatal`).
 - **Message**: The log message.
-- **Error** Handling: Automatically includes error messages if an error is provided.
+- **Error Handling**: Automatically includes error messages if an `error` is provided.
 - **Tracing Information**: Extracts `trace_id` and `span_id` from the context if available (e.g., when using OpenTelemetry).
 - **Caller Information**: Adds information about the function, file, and line number where the log was generated.
 - **Stack Trace**: Includes a stack trace for logs at the `error` level or higher.
 - **Custom Fields**: Supports additional fields provided via `logger.Fields`.
+- **Field Key Customization**: Allows custom formatting of field keys via `FieldKeyFormatter`.
 
 ### Configuration
-You can customize the `ProductionFormatter` when initializing the logger:
+You can customize the `StructuredJSONFormatter` when initializing the logger:
 ```golang
 import (
-    "github.com/kittipat1413/go-common/framework/logger/formatter"
+    "github.com/kittipat1413/go-common/framework/logger"
     "time"
 )
 
-formatter := &formatter.ProductionFormatter{
+formatter := &logger.StructuredJSONFormatter{
     TimestampFormat: time.RFC3339, // Customize timestamp format
     PrettyPrint:     true,         // Indent JSON output
-    SkipPackages: []string{
-        "myproject/internal/pkg1", // Packages to skip when determining the caller
+    FieldKeyFormatter: func(key string) string {
+        // Customize field keys
+        switch key {
+        case logger.DefaultEnvironmentKey:
+            return "env"
+        case logger.DefaultServiceNameKey:
+            return "service"
+        case logger.DefaultSJsonFmtSeverityKey:
+            return "level"
+        case logger.DefaultSJsonFmtMessageKey:
+            return "msg"
+        default:
+            return key
+        }
     },
 }
 
@@ -128,30 +161,51 @@ logConfig := logger.Config{
     Level:     logger.INFO,
     Formatter: formatter,
 }
+
 ```
 
-Example Log Entry
+Example Log Entry (default `FieldKeyFormatter`)
 ```json
 {
-  "service_name": "logger-example",
-  "environment": "development",
-  "timestamp": "2024-10-15T20:03:43+07:00",
-  "severity": "error",
-  "message": "Failed to process request",
-  "error": "database connection failed",
-  "trace_id": "4d1e00c0e6c0a0c3",
-  "span_id": "6d1e00c0e6c0a0c4",
   "caller": {
-    "function": "service.ProcessRequest",
-    "file": "/path/to/service/handler.go:42"
+    "file": "/go-common/framework/logger/example/gin_with_logger/main.go:99",
+    "function": "main.handlerWithLogger"
   },
-  "stack_trace": "goroutine 1 [running]:\nmain.main()\n\t/path/to/main.go:12 +0x25",
-  "user_id": 12345
+  "environment": "development",
+  "message": "Handled HTTP request",
+  "request": {
+    "method": "GET",
+    "url": "/log"
+  },
+  "request_id": "afa241ba-cb59-4053-a1f5-d82e6193790c",
+  "response_time": 0.000026542,
+  "service_name": "logger-example",
+  "severity": "info",
+  "span_id": "94e92f0e1b8532e6",
+  "status": 200,
+  "timestamp": "2024-10-20T02:01:57+07:00",
+  "trace_id": "f891fd44c417fc7efa297e6a18ddf0cf"
+}
+```
+```json
+{
+  "caller": {
+    "file": "/go-common/framework/logger/example/gin_with_logger/main.go:78",
+    "function": "main.logMessages"
+  },
+  "environment": "development",
+  "error": "example error",
+  "example_field": "error_value",
+  "message": "This is an error message",
+  "service_name": "logger-example",
+  "severity": "error",
+  "stack_trace": "goroutine 1 [running]:\ngithub.com/kittipat1413/go-common/framework/logger.getStackTrace()\n\t/Users/kittipat/go-github-repo/go-common/framework/logger/structured_json_formatter.go:181 .....\n",
+  "timestamp": "2024-10-20T02:01:55+07:00"
 }
 ```
 
 ### Tracing Integration
-The `ProductionFormatter` can extract tracing information (`trace_id` and `span_id`) from the `context.Context` if you are using a tracing system like OpenTelemetry. Ensure that spans are started and the context is propagated correctly.
+The `StructuredJSONFormatter` can extract tracing information (`trace_id` and `span_id`) from the `context.Context` if you are using a tracing system like OpenTelemetry. Ensure that spans are started and the context is propagated correctly.
 
 ### Caller and Stack Trace
 - **Caller Information**: The formatter includes the function name, file, and line number where the log was generated, aiding in debugging.
@@ -178,7 +232,7 @@ logConfig := logger.Config{
 ```
 
 ## No-Op Logger
-For testing purposes, you can use the no-operation logger, which implements the Logger interface but discards all log messages:
+For testing purposes, you can use the no-operation logger, which implements the `Logger` interface but discards all log messages:
 ```golang
 log := logger.NewNoopLogger()
 ```

@@ -21,7 +21,16 @@ var logrusLevelMapper = map[LogLevel]logrus.Level{
 }
 
 func (l LogLevel) ToLogrusLevel() logrus.Level {
-	return logrusLevelMapper[l]
+	if level, ok := logrusLevelMapper[l]; ok {
+		return level
+	}
+	// Default to InfoLevel if unknown
+	return logrus.InfoLevel
+}
+
+func (l LogLevel) IsValid() bool {
+	_, ok := logrusLevelMapper[l]
+	return ok
 }
 
 const (
@@ -32,12 +41,3 @@ const (
 	// DefaultErrorKey is the default key used for the error field in logs.
 	DefaultErrorKey = "error"
 )
-
-// FieldKeyFormatter is a function type that allows users to customize log field keys.
-type FieldKeyFormatter func(key string) string
-
-// NoopFieldKeyFormatter is the default implementation of FieldKeyFormatter,
-// which returns the key unchanged.
-func NoopFieldKeyFormatter(defaultKey string) string {
-	return defaultKey
-}

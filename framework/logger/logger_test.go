@@ -18,11 +18,21 @@ func TestNewDefaultLogger(t *testing.T) {
 	assert.NotNil(t, log, "default logger should not be nil")
 }
 
+func TestNewLogger_InvalidLogLevel(t *testing.T) {
+	// Attempt to create a logger with an invalid log level
+	invalidLevel := logger.LogLevel("invalid_level")
+	_, err := logger.NewLogger(logger.Config{
+		Level: invalidLevel,
+	})
+	assert.Error(t, err, "should return an error for invalid log level")
+	assert.Equal(t, logger.ErrInvalidLogLevel, err, "error should be ErrInvalidLogLevel")
+}
+
 func TestLogger_LogLevels(t *testing.T) {
 	buffer := &bytes.Buffer{}
 	log, err := logger.NewLogger(logger.Config{
 		Level: logger.DEBUG,
-		Formatter: &logger.ProductionFormatter{
+		Formatter: &logger.StructuredJSONFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     false,
 		},
@@ -67,7 +77,7 @@ func TestLogger_ErrorLevel(t *testing.T) {
 	buffer := &bytes.Buffer{}
 	log, err := logger.NewLogger(logger.Config{
 		Level: logger.ERROR,
-		Formatter: &logger.ProductionFormatter{
+		Formatter: &logger.StructuredJSONFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     false,
 		},
@@ -103,11 +113,44 @@ func TestLogger_ErrorLevel(t *testing.T) {
 	assert.Equal(t, "test error", logEntry["error"], "error message should match")
 }
 
+func TestLogger_NilFields(t *testing.T) {
+	buffer := &bytes.Buffer{}
+	log, err := logger.NewLogger(logger.Config{
+		Level: logger.INFO,
+		Formatter: &logger.StructuredJSONFormatter{
+			TimestampFormat: time.RFC3339,
+			PrettyPrint:     false,
+		},
+		Output: buffer,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, log)
+
+	ctx := context.Background()
+	// Log with nil fields
+	log.Info(ctx, "Info message with nil fields", nil)
+
+	logEntries := bytes.Split(buffer.Bytes(), []byte("\n"))
+	if len(logEntries) > 0 && len(logEntries[len(logEntries)-1]) == 0 {
+		logEntries = logEntries[:len(logEntries)-1]
+	}
+
+	assert.Equal(t, 1, len(logEntries), "should have 1 log entry")
+
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(logEntries[0], &logEntry)
+	assert.NoError(t, err, "log entry should be valid JSON")
+
+	// Check standard fields
+	assert.Equal(t, "Info message with nil fields", logEntry["message"], "message should match")
+	assert.Equal(t, "info", logEntry["severity"], "severity should match")
+}
+
 func TestLogger_ContextFields(t *testing.T) {
 	buffer := &bytes.Buffer{}
 	log, err := logger.NewLogger(logger.Config{
 		Level: logger.INFO,
-		Formatter: &logger.ProductionFormatter{
+		Formatter: &logger.StructuredJSONFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     false,
 		},
@@ -146,13 +189,16 @@ func TestSetDefaultLoggerConfig(t *testing.T) {
 	// Backup the original default config and restore it after the test
 	originalConfig := logger.Config{
 		Level: logger.INFO,
-		Formatter: &logger.ProductionFormatter{
+		Formatter: &logger.StructuredJSONFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     false,
 		},
 		Output: os.Stdout,
 	}
-	defer logger.SetDefaultLoggerConfig(originalConfig)
+	defer func() {
+		err := logger.SetDefaultLoggerConfig(originalConfig)
+		assert.NoError(t, err, "should not return an error")
+	}()
 
 	// Create a buffer to capture the logs
 	buffer := &bytes.Buffer{}
@@ -160,7 +206,7 @@ func TestSetDefaultLoggerConfig(t *testing.T) {
 	// Define a new custom config
 	customConfig := logger.Config{
 		Level: logger.DEBUG,
-		Formatter: &logger.ProductionFormatter{
+		Formatter: &logger.StructuredJSONFormatter{
 			TimestampFormat: time.RFC3339Nano,
 			PrettyPrint:     false,
 		},
@@ -170,7 +216,8 @@ func TestSetDefaultLoggerConfig(t *testing.T) {
 	}
 
 	// Set the custom config as the default logger config
-	logger.SetDefaultLoggerConfig(customConfig)
+	err := logger.SetDefaultLoggerConfig(customConfig)
+	assert.NoError(t, err, "should not return an error")
 
 	// Get the default logger (it should now use the custom config)
 	log := logger.NewDefaultLogger()
@@ -186,7 +233,7 @@ func TestSetDefaultLoggerConfig(t *testing.T) {
 	assert.Equal(t, 1, len(logEntries), "should have 1 log entry")
 
 	var logEntry map[string]interface{}
-	err := json.Unmarshal(logEntries[0], &logEntry)
+	err = json.Unmarshal(logEntries[0], &logEntry)
 	assert.NoError(t, err, "log entry should be valid JSON")
 
 	assert.Equal(t, "test_service", logEntry["service_name"], "serviceName should match")
@@ -195,11 +242,34 @@ func TestSetDefaultLoggerConfig(t *testing.T) {
 	assert.Equal(t, "Debug message", logEntry["message"], "message should match")
 }
 
+func TestSetDefaultLoggerConfig_InvalidLogLevel(t *testing.T) {
+	// Backup the original default config
+	originalConfig := logger.Config{
+		Level: logger.INFO,
+		Formatter: &logger.StructuredJSONFormatter{
+			TimestampFormat: time.RFC3339,
+			PrettyPrint:     false,
+		},
+		Output: os.Stdout,
+	}
+	defer func() {
+		_ = logger.SetDefaultLoggerConfig(originalConfig)
+	}()
+
+	// Attempt to set an invalid log level in the default logger config
+	invalidConfig := logger.Config{
+		Level: logger.LogLevel("invalid_level"),
+	}
+	err := logger.SetDefaultLoggerConfig(invalidConfig)
+	assert.Error(t, err, "should return an error for invalid log level")
+	assert.Equal(t, logger.ErrInvalidLogLevel, err, "error should be ErrInvalidLogLevel")
+}
+
 func TestLogger_WithFields(t *testing.T) {
 	buffer := &bytes.Buffer{}
 	log, err := logger.NewLogger(logger.Config{
 		Level: logger.INFO,
-		Formatter: &logger.ProductionFormatter{
+		Formatter: &logger.StructuredJSONFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     false,
 		},
