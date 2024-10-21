@@ -113,7 +113,7 @@ func NewMissingUserPasswordError() (*MissingUserPasswordError, error) {
 	baseErr, err := errors.NewBaseError(
 		StatusCodeMissingUserPassword,
 		"Missing username or password",
-		http.StatusBadRequest,
+		http.StatusUnauthorized,
 		nil,
 	)
 	if err != nil {
