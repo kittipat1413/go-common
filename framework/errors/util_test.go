@@ -66,7 +66,7 @@ func TestUnwrapDomainError(t *testing.T) {
 		{
 			name: "should return DomainError when it is the error",
 			prepareErr: func() error {
-				baseErr, _ := domain_error.NewBaseError("20001", "mock domain error", http.StatusOK, nil)
+				baseErr, _ := domain_error.NewBaseError("20001", "mock domain error", http.StatusBadRequest, nil)
 				domainErr := &MockDomainError{BaseError: baseErr}
 				return domainErr
 			},

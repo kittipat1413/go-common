@@ -45,7 +45,7 @@ The error code should follow the 'xyzzz' convention:
   - 'y' (second digit): subcategory.
   - 'zzz' (last three digits): specific error detail.
 
-The function validates the 'xy' part of the error code against valid categories.
+The function validates the 'xy' part of the error code against valid categories and the HTTP status code against the category.
 */
 func NewBaseError(code, message string, httpCode int, data interface{}) (*BaseError, error) {
 	// Validate the error code length
@@ -60,7 +60,10 @@ func NewBaseError(code, message string, httpCode int, data interface{}) (*BaseEr
 	if !IsValidCategory(xy) {
 		return nil, fmt.Errorf("error creation failed: invalid category %s", xy)
 	}
-
+	// Validate the HTTP status code against the category
+	if httpCode != GetCategoryHTTPStatus(xy) {
+		return nil, fmt.Errorf("error creation failed: invalid HTTP status code %d for category %s", httpCode, xy)
+	}
 	// Use default message if none provided
 	if message == "" {
 		message = getDefaultMessages(code)

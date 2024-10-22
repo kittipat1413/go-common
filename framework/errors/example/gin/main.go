@@ -97,9 +97,11 @@ func Login(c *gin.Context) {
 ////////////////////////////////////////////////////
 // CUSTOM ERROR DEFINITIONS
 // This section demonstrates how to define custom errors in your application.
+// Custom errors should align with the category codes defined in the error framework.
 ////////////////////////////////////////////////////
 
 const (
+	// Error code in category 91xxx (Unauthorized Error)
 	StatusCodeMissingUserPassword = "91001"
 )
 
@@ -135,7 +137,7 @@ func (e *InvalidCustomError) Code() string {
 }
 
 func (e *InvalidCustomError) GetMessage() string {
-	return "some error occurred"
+	return "custom error occurred"
 }
 
 func (e *InvalidCustomError) GetHTTPCode() int {

@@ -142,7 +142,7 @@ func TestExtractBaseError(t *testing.T) {
 		{
 			name: "should extract BaseError when directly embedded",
 			prepareErr: func() error {
-				baseErr, _ := domain_error.NewBaseError("10001", "mock domain error", http.StatusBadRequest, nil)
+				baseErr, _ := domain_error.NewBaseError("20001", "mock domain error", http.StatusBadRequest, nil)
 				return &MockDomainError{BaseError: baseErr}
 			},
 			expectedFound: true,
