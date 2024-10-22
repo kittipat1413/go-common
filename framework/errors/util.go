@@ -10,7 +10,7 @@ func WrapError(prefix string, errptr *error) {
 	}
 }
 
-// UnwrapDomainError attempts to find a DomainError in the error chain. The error should implement the DomainError interface and have a BaseError.
+// UnwrapDomainError attempts to find a DomainError in the error chain. The error should implement the DomainError interface and have a BaseError embedded.
 // It unwraps the error chain and checks each error to see if it is a DomainError and if it contains a BaseError. If such an error is found, it is returned.
 func UnwrapDomainError(err error) DomainError {
 	unwrapErr := err
