@@ -56,7 +56,7 @@ Implements distributed tracing capabilities to monitor and debug microservices.
   - Captures spans and context propagation.
   - Minimal performance overhead.
 
-### Error and Response Handler
+### [Error](/framework/errors/) and Response Handler
 Standardizes error handling and HTTP responses.
 - Features:
   - Consistent error formatting and wrapping.
