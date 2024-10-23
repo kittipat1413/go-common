@@ -29,16 +29,12 @@ func (e *BaseError) Error() string {
 	return e.GetMessage()
 }
 
-func (e *BaseError) Wrap(err error) error {
-	return fmt.Errorf("%w: %v", e, err)
-}
-
 func (e *BaseError) GetData() interface{} {
 	return e.data
 }
 
 /*
-NewBaseError creates a new BaseError instance. If message is empty, it uses the default message from errorCodeToMessages.
+NewBaseError creates a new BaseError instance. If message is empty, it uses the default message from getDefaultMessages().
 
 The error code should follow the 'xyzzz' convention:
   - 'x' (first digit): main error category.
@@ -77,7 +73,8 @@ func NewBaseError(code, message string, httpCode int, data interface{}) (*BaseEr
 	}, nil
 }
 
-// ExtractBaseError attempts to extract the BaseError from the error's concrete type. It uses reflection to check if the error directly embeds a *BaseError (one layer deep).
+// ExtractBaseError attempts to extract the BaseError from the error's concrete type.
+// It supports both pointer and non-pointer types, checking if the error directly embeds a *BaseError (one layer deep).
 func ExtractBaseError(err error) *BaseError {
 	if err == nil {
 		return nil
@@ -90,19 +87,23 @@ func ExtractBaseError(err error) *BaseError {
 
 	// Get the concrete value of the error
 	errValue := reflect.ValueOf(err)
-	if errValue.Kind() != reflect.Ptr || errValue.IsNil() {
-		return nil
+	if errValue.Kind() == reflect.Ptr {
+		if errValue.IsNil() {
+			return nil
+		}
+		// Dereference the pointer to get the underlying struct
+		errValue = errValue.Elem()
 	}
 
-	errElem := errValue.Elem()
-	if errElem.Kind() != reflect.Struct {
+	// Ensure the underlying type is a struct
+	if errValue.Kind() != reflect.Struct {
 		return nil
 	}
 
 	// Iterate over the fields of the struct
-	for i := 0; i < errElem.NumField(); i++ {
-		field := errElem.Field(i)
-		fieldType := errElem.Type().Field(i)
+	for i := 0; i < errValue.NumField(); i++ {
+		field := errValue.Field(i)
+		fieldType := errValue.Type().Field(i)
 
 		// Check if the field is embedded (anonymous) and of type *BaseError
 		if fieldType.Anonymous && field.Type() == reflect.TypeOf((*BaseError)(nil)) {

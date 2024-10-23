@@ -1,7 +1,7 @@
 package errors
 
 /*
-DomainError is the interface that all custom errors in the framework implement. It provides methods to retrieve the error code, message, HTTP status code, additional data, and to wrap underlying errors.
+DomainError is the interface that all custom errors in the framework implement. It provides methods to retrieve the error code, message, HTTP status code and additional data.
 
 Error Code Convention: The error code follows the format 'xyzzz'
   - 'x' (first digit) represents the main error category (e.g., '2' for Client Error).
@@ -25,7 +25,4 @@ type DomainError interface {
 
 	// GetData returns any additional data associated with the error.
 	GetData() interface{}
-
-	// Wrap allows wrapping an underlying error with the current error.
-	Wrap(err error) error
 }

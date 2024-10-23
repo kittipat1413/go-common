@@ -56,15 +56,27 @@ func NewUserNotFoundError(userID string) (*UserNotFoundError, error) {
 ```
 
 ### Using the Error Handling Utilities
-**Wrapping Errors**: Use `errors.WrapError` to add context to an error.
+
+**Adding Context with a Prefix**: Use `errors.WrapErrorWithPrefix` to add context to an error with a specified prefix. This helps in tracking where the error occurred. If the error is nil, it does nothing.
 ```golang
 func someFunction() (err error) {
-    defer errors.WrapError("[someFunction]", &err)
+    defer errors.WrapErrorWithPrefix("[someFunction]", &err)
     // Function logic...
     return
 }
 ```
-**Unwrapping Domain Errors**: Use `errors.UnwrapDomainError` to extract the `DomainError` from an error chain.
+**Wrapping Errors**: Use `errors.WrapError` to combine multiple errors into one. If either error is nil, it returns the non-nil error. If both are non-nil, it wraps the new error around the original error.
+```golang
+user, err := getUser()
+if err != nil {
+    // Creating a domain-specific error
+    domainErr := errors.New("user not found")
+
+    // Wrapping the domain error with the original error
+    return errors.WrapError(err, domainErr)
+}
+```
+**Unwrapping Domain Errors**: Use `errors.UnwrapDomainError` to extract the `DomainError` from an error chain, allowing for specialized handling of domain-specific errors.
 ```golang
 func handleError(err error) {
     if domainErr := errors.UnwrapDomainError(err); domainErr != nil {

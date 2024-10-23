@@ -2,7 +2,6 @@ package errors_test
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -67,6 +66,15 @@ func TestNewBaseError(t *testing.T) {
 			expectedError: true,
 			expectedMsg:   "",
 		},
+		{
+			name:          "invalid HTTP code",
+			code:          "20001",
+			message:       "valid error",
+			httpCode:      http.StatusOK,
+			data:          nil,
+			expectedError: true,
+			expectedMsg:   "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -116,14 +124,6 @@ func TestBaseErrorMethods(t *testing.T) {
 	t.Run("Test GetData() method", func(t *testing.T) {
 		assert.Equal(t, "extra data", baseErr.GetData(), "unexpected GetData() output")
 	})
-
-	t.Run("Test Wrap() method", func(t *testing.T) {
-		originalErr := fmt.Errorf("original error")
-		wrappedErr := baseErr.Wrap(originalErr)
-		assert.Error(t, wrappedErr, "Wrap() should produce a non-nil error")
-		assert.Contains(t, wrappedErr.Error(), "original error", "wrapped error should contain original error message")
-		assert.Contains(t, wrappedErr.Error(), "sample error", "wrapped error should contain BaseError message")
-	})
 }
 
 func TestExtractBaseError(t *testing.T) {
@@ -149,10 +149,19 @@ func TestExtractBaseError(t *testing.T) {
 			expectedMsg:   "mock domain error",
 		},
 		{
-			name: "should extract BaseError when directly embedded",
+			name: "should extract BaseError when directly embedded in a pointer struct",
 			prepareErr: func() error {
 				baseErr, _ := domain_error.NewBaseError("20001", "mock domain error", http.StatusBadRequest, nil)
 				return &MockDomainError{BaseError: baseErr}
+			},
+			expectedFound: true,
+			expectedMsg:   "mock domain error",
+		},
+		{
+			name: "should extract BaseError when directly embedded in a non-pointer struct",
+			prepareErr: func() error {
+				baseErr, _ := domain_error.NewBaseError("20001", "mock domain error", http.StatusBadRequest, nil)
+				return MockDomainError{BaseError: baseErr}
 			},
 			expectedFound: true,
 			expectedMsg:   "mock domain error",
