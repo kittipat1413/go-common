@@ -22,7 +22,7 @@ func init() {
 ```
 
 ### Defining Custom Errors
-To define a custom error, create a new type that embeds `*errors.BaseError` and implements the `DomainError` interface.
+Define custom errors by embedding `*errors.BaseError` in your error type. This ensures that custom errors conform to the `DomainError` interface and can be properly handled by the error utilities.
 ```golang
 package myerrors
 
@@ -54,6 +54,44 @@ func NewUserNotFoundError(userID string) (*UserNotFoundError, error) {
     return &UserNotFoundError{BaseError: baseErr}, nil
 }
 ```
+### Simplify Error Constructors
+To avoid handling errors every time you create a custom error, you can design your constructors to handle any internal errors themselves. This way, your error creation functions can have a simpler signature, 
+returning only the custom error. You can handle internal errors by:
+
+- **Panicking** 
+
+    If `errors.NewBaseError` returns an `error`, it likely indicates a misconfiguration or coding error (e.g., invalid status code or error code). In such cases, it's acceptable to panic during development to catch the issue early.
+    ```golang
+    func NewUserNotFoundError(userID string) *UserNotFoundError {
+        baseErr, err := errors.NewBaseError(
+            StatusCodeUserNotFound,
+            fmt.Sprintf("User with ID %s not found", userID),
+            http.StatusNotFound,
+            map[string]string{"user_id": userID},
+        )
+        if err != nil {
+            panic(fmt.Sprintf("Failed to create BaseError: %v", err))
+        }
+        return &UserNotFoundError{BaseError: baseErr}
+    }
+    ```
+- **Returning an Error Interface**
+
+    If you want the option to handle the error in the calling function, you can modify your constructor to return an `error` interface.
+    ```golang
+    func NewUserNotFoundError(userID string) error {
+        baseErr, err := errors.NewBaseError(
+            StatusCodeUserNotFound,
+            fmt.Sprintf("User with ID %s not found", userID),
+            http.StatusNotFound,
+            map[string]string{"user_id": userID},
+        )
+        if err != nil {
+            return fmt.Errorf("Failed to create BaseError: %w", err)
+        }
+        return &UserNotFoundError{BaseError: baseErr}
+    }
+    ```
 
 ### Using the Error Handling Utilities
 
