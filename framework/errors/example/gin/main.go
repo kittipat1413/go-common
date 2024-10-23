@@ -72,19 +72,19 @@ func Login(c *gin.Context) {
 
 	// Bind JSON input.
 	if err := c.ShouldBindJSON(&credentials); err != nil {
-		errResp, newErr := NewMissingUserPasswordError()
+		domainErr, newErr := NewMissingUserPasswordError()
 		if newErr != nil {
 			ErrorResp(c, newErr)
 			return
 		}
-		ErrorResp(c, errResp)
+		ErrorResp(c, domainErr)
 		return
 	}
 
 	// Simulate authentication failure.
 	if credentials.Username != "admin" || credentials.Password != "password" {
-		errResp, _ := errors.NewUnauthorizedError()
-		ErrorResp(c, errResp)
+		domainErr, _ := errors.NewUnauthorizedError()
+		ErrorResp(c, domainErr)
 		return
 	}
 
