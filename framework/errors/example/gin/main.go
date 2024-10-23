@@ -39,7 +39,7 @@ func GetUsers(c *gin.Context) {
 	users, err := getUsers()
 	if err != nil {
 		domainErr, _ := errors.NewNotFoundError()
-		ErrorResp(c, domainErr.Wrap(err))
+		ErrorResp(c, errors.WrapError(err, domainErr))
 		return
 	}
 
@@ -51,7 +51,7 @@ func GetUsers(c *gin.Context) {
 
 func getUsers() (data []string, err error) {
 	errLocation := "[Service getUsers]"
-	defer errors.WrapError(errLocation, &err)
+	defer errors.WrapErrorWithPrefix(errLocation, &err)
 
 	// Simulate Database Error
 	return nil, sql.ErrNoRows
