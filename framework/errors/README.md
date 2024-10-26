@@ -92,6 +92,80 @@ returning only the custom error. You can handle internal errors by:
         return &UserNotFoundError{BaseError: baseErr}
     }
     ```
+- **Using `init()` to Initialize Predefined Errors**
+
+    You can simplify handling predefined errors by initializing them at the package level. This approach removes the need to handle errors every time you use these predefined errors. If `NewBaseError` fails during initialization (e.g., due to a misconfiguration), `log.Fatal` will immediately halt the program and output the error. This way, issues are caught early at startup rather than during runtime.
+    ```golang
+    package myerrors
+
+    import (
+        "fmt"
+        "log"
+        "net/http"
+    )
+
+    // Predefined errors as package-level variables.
+    var (
+        ErrInvalidParameters *InvalidParametersError
+        ErrNotFound          *NotFoundError
+    )
+
+    // init initializes predefined errors at package load.
+    func init() {
+        var err error
+
+        // Initialize InvalidParametersError
+        ErrInvalidParameters, err = newInvalidParametersError()
+        if err != nil {
+            log.Fatal(fmt.Sprintf("failed to initialize ErrInvalidParameters: %v", err))
+        }
+
+        // Initialize NotFoundError
+        ErrNotFound, err = newNotFoundError()
+        if err != nil {
+            log.Fatal(fmt.Sprintf("failed to initialize ErrNotFound: %v", err))
+        }
+    }
+
+    // InvalidParametersError is a predefined error for invalid parameters.
+    type InvalidParametersError struct {
+        *BaseError
+    }
+
+    // Helper function to initialize InvalidParametersError.
+    func newInvalidParametersError() (*InvalidParametersError, error) {
+        baseErr, err := NewBaseError(
+            StatusCodeGenericInvalidParameters,
+            "", // Empty message to use the default message.
+            http.StatusBadRequest,
+            nil,
+        )
+        if err != nil {
+            return nil, err
+        }
+        return &InvalidParametersError{BaseError: baseErr}, nil
+    }
+
+    // NotFoundError is a predefined error for not found cases.
+    type NotFoundError struct {
+        *BaseError
+    }
+
+    // Helper function to initialize NotFoundError.
+    func newNotFoundError() (*NotFoundError, error) {
+        baseErr, err := NewBaseError(
+            StatusCodeGenericNotFoundError,
+            "", // Empty message to use the default message.
+            http.StatusNotFound,
+            nil,
+        )
+        if err != nil {
+            return nil, err
+        }
+        return &NotFoundError{BaseError: baseErr}, nil
+    }
+    ```
+    > After defining these errors, you can use them directly in your code by referencing `myerrors.ErrInvalidParameters` or `myerrors.ErrNotFound`. Since they are pre-initialized at the package level, they are always available without needing additional error handling for creation.
 
 ### Using the Error Handling Utilities
 
