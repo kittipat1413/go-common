@@ -1,3 +1,7 @@
+[![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kittipat1413/go-common/issues)
+[![HitCount](https://hits.dwyl.com/kittipat1413/go-common.svg)](https://hits.dwyl.com/kittipat1413/go-common)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kittipat1413/go-common)](https://goreportcard.com/report/github.com/kittipat1413/go-common)
+
 # Common Backend Framework
 Welcome to the **Common Backend Framework** repository! This project provides a collection of utilities, libraries, and frameworks designed to standardize and streamline the development of backend API services within our organization.
 
