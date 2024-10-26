@@ -1,4 +1,5 @@
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kittipat1413/go-common/issues)
+![Coverage](https://img.shields.io/badge/Coverage-5-red)
 [![View Count](https://hits.dwyl.com/kittipat1413/go-common.svg)](https://hits.dwyl.com/kittipat1413/go-common)
 [![Release](https://img.shields.io/github/release/kittipat1413/go-common.svg?style=flat-square)](https://github.com/kittipat1413/go-common/releases/latest)
 ---
