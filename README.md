@@ -1,11 +1,10 @@
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kittipat1413/go-common/issues)
+[![Total Views](https://hits.dwyl.com/kittipat1413/go-common.svg)](https://hits.dwyl.com/kittipat1413/go-common)
 ![Coverage](https://img.shields.io/badge/Coverage-5-red)
-[![View Count](https://hits.dwyl.com/kittipat1413/go-common.svg)](https://hits.dwyl.com/kittipat1413/go-common)
-[![Release](https://img.shields.io/github/release/kittipat1413/go-common.svg?style=flat-square)](https://github.com/kittipat1413/go-common/releases/latest)
----
-[![test](https://github.com/kittipat1413/go-common/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/kittipat1413/go-common/actions/workflows/test.yaml)
+[![Test](https://github.com/kittipat1413/go-common/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/kittipat1413/go-common/actions/workflows/test.yaml)
 [![Lint](https://github.com/kittipat1413/go-common/actions/workflows/lint.yaml/badge.svg?branch=main)](https://github.com/kittipat1413/go-common/actions/workflows/lint.yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kittipat1413/go-common)](https://goreportcard.com/report/github.com/kittipat1413/go-common)
+[![Release](https://img.shields.io/github/release/kittipat1413/go-common.svg?style=flat-square)](https://github.com/kittipat1413/go-common/releases/latest)
 
 # Common Backend Framework
 Welcome to the **Common Backend Framework** repository! This project provides a collection of utilities, libraries, and frameworks designed to standardize and streamline the development of backend API services within our organization.
