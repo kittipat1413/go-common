@@ -1,5 +1,8 @@
-[![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kittipat1413/go-common/issues)
-[![HitCount](https://hits.dwyl.com/kittipat1413/go-common.svg)](https://hits.dwyl.com/kittipat1413/go-common)
+[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kittipat1413/go-common/issues)
+[![View Count](https://hits.dwyl.com/kittipat1413/go-common.svg)](https://hits.dwyl.com/kittipat1413/go-common)
+[![Release](https://img.shields.io/github/release/kittipat1413/go-common.svg?style=flat-square)](https://github.com/kittipat1413/go-common/releases/latest)
+---
+[![Lint](https://github.com/kittipat1413/go-common/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/kittipat1413/go-common/actions/workflows/lint.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kittipat1413/go-common)](https://goreportcard.com/report/github.com/kittipat1413/go-common)
 
 # Common Backend Framework
