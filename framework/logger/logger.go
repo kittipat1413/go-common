@@ -30,8 +30,9 @@ var (
 	defaultLoggerConfig = Config{
 		Level: INFO,
 		Formatter: &StructuredJSONFormatter{
-			TimestampFormat: time.RFC3339,
-			PrettyPrint:     false,
+			TimestampFormat:   time.RFC3339,
+			PrettyPrint:       false,
+			FieldKeyFormatter: NoopFieldKeyFormatter,
 		},
 		Output: os.Stdout,
 	}
