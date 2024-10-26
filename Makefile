@@ -16,7 +16,8 @@ test:
 
 test-coverage:
 	@go test $(GO_FILES)/... -race -covermode=atomic -coverprofile coverage.out
-
+	@go tool cover -func=coverage.out -o=coverage_summary.out
+	
 open-coverage-report:
 	@go tool cover -html coverage.out -o coverage.html;
 	@open coverage.html
