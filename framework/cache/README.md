@@ -1,3 +1,7 @@
+[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kittipat1413/go-common/issues)
+[![Total Views](https://img.shields.io/endpoint?url=https%3A%2F%2Fhits.dwyl.com%2Fkittipat1413%2Fgo-common.json%3Fcolor%3Dblue)](https://hits.dwyl.com/kittipat1413/go-common)
+[![Release](https://img.shields.io/github/release/kittipat1413/go-common.svg?style=flat)](https://github.com/kittipat1413/go-common/releases/latest)
+
 # Cache Package
 This package provides a flexible and extensible caching interface designed for Go applications. It supports multiple types of caches, allowing you to choose the best caching strategy for your needs. Currently, the package includes an in-memory cache implementation called localcache, with plans to support additional cache types like Redis and Memcached in the future.
 

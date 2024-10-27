@@ -1,3 +1,7 @@
+[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kittipat1413/go-common/issues)
+[![Total Views](https://img.shields.io/endpoint?url=https%3A%2F%2Fhits.dwyl.com%2Fkittipat1413%2Fgo-common.json%3Fcolor%3Dblue)](https://hits.dwyl.com/kittipat1413/go-common)
+[![Release](https://img.shields.io/github/release/kittipat1413/go-common.svg?style=flat)](https://github.com/kittipat1413/go-common/releases/latest)
+
 # Logger Package
 The logger package provides a structured, context-aware logging solution for Go applications. It is built on top of the [logrus](https://github.com/sirupsen/logrus) library and is designed to facilitate easy integration with your projects, offering features like:
 - JSON-formatted logs suitable for production environments.
