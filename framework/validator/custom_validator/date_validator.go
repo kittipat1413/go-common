@@ -12,11 +12,14 @@ import (
 var _ v.CustomValidator = (*DateValidator)(nil)
 
 const (
-	// DateValidatorTag is the tag identifier for date validation (`validate:"date=..."`).
+	// DateValidatorTag is the tag identifier for date validation (`validate:"date={formats}"`).
 	DateValidatorTag = "date"
 
-	// DateOnly represents the 'dateonly' format (YYYY-MM-DD) (`validate:"date=dateonly"`).
-	DateOnly = "dateonly"
+	// Supported date formats
+	DateOnly = "dateonly" // DateOnly represents the 'dateonly' format (YYYY-MM-DD) (`validate:"date=dateonly"`).
+	DateTime = "datetime" // DateTime represents the 'datetime' format (YYYY-MM-DD HH:MM:SS) (`validate:"date=datetime"`).
+	RFC3339  = "rfc3339"  // RFC3339 represents the 'rfc3339' format (YYYY-MM-DDTHH:MM:SSZ, YYYY-MM-DDTHH:MM:SS±HH:MM) (`validate:"date=rfc3339"`).
+	TimeOnly = "timeonly" // TimeOnly represents the 'timeonly' format (HH:MM:SS) (`validate:"date=timeonly"`).
 )
 
 // DateValidator implements the CustomValidator interface for date validation.
@@ -38,7 +41,7 @@ func (*DateValidator) Translation() (string, validator.TranslationFunc) {
 
 	// Custom translation function to handle parameters
 	customTransFunc := func(ut ut.Translator, fe validator.FieldError) string {
-		//{0} will be replaced with fe.Field(), {1} with fe.Param()
+		// {0} will be replaced with fe.Field(), {1} with fe.Param()
 		t, _ := ut.T(fe.Tag(), fe.Field(), fe.Param())
 		return t
 	}
@@ -49,6 +52,9 @@ func (*DateValidator) Translation() (string, validator.TranslationFunc) {
 // validateDate validates a date field based on the specified format.
 // Supported formats:
 //   - "dateonly": Validates dates in "YYYY-MM-DD" format.
+//   - "datetime": Validates dates with time in "YYYY-MM-DD HH:MM:SS" format.
+//   - "rfc3339": Validates dates in RFC3339 format.
+//   - "timeonly": Validates time in "HH:MM:SS" format.
 //
 // Returns false if the format is unrecognized or if the date doesn't match the specified format.
 func validateDate(fl validator.FieldLevel) bool {
@@ -62,7 +68,13 @@ func validateDate(fl validator.FieldLevel) bool {
 
 	switch format {
 	case DateOnly:
-		layout = "2006-01-02"
+		layout = time.DateOnly // "2006-01-02"
+	case TimeOnly:
+		layout = time.TimeOnly // "15:04:05"
+	case DateTime:
+		layout = time.DateTime // "2006-01-02 15:04:05"
+	case RFC3339:
+		layout = time.RFC3339 // "2006-01-02T15:04:05Z07:00"
 	default:
 		// If an unrecognized format is provided, validation should fail.
 		return false
