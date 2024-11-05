@@ -3,6 +3,7 @@ package localcache_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -58,6 +59,32 @@ func TestLocalCache_GetWithInitializer(t *testing.T) {
 	require.Equal(t, 0, initializerCalled, "Initializer should not have been called again")
 }
 
+func TestLocalCache_Get_CacheMiss(t *testing.T) {
+	ctx := context.Background()
+	c := localcache.New[string]()
+
+	key := "missingKey"
+
+	// Try to get a key that doesn't exist without an initializer
+	_, err := c.Get(ctx, key, nil)
+	require.ErrorIs(t, err, cache.ErrCacheMiss, "Expected ErrCacheMiss when getting a missing key without initializer")
+}
+
+func TestLocalCache_Get_InitializerError(t *testing.T) {
+	ctx := context.Background()
+	c := localcache.New[string]()
+
+	key := "initErrorKey"
+	expectedErr := errors.New("initializer error")
+
+	initializer := func() (string, *time.Duration, error) {
+		return "", nil, expectedErr
+	}
+
+	_, err := c.Get(ctx, key, initializer)
+	require.ErrorIs(t, err, expectedErr, "Expected error from initializer")
+}
+
 func TestLocalCache_Expiration(t *testing.T) {
 	ctx := context.Background()
 	c := localcache.New[string]()
@@ -79,6 +106,96 @@ func TestLocalCache_Expiration(t *testing.T) {
 	// Try to get the value after expiration
 	_, err = c.Get(ctx, key, nil)
 	require.ErrorIs(t, err, cache.ErrCacheMiss, "Expected ErrCacheMiss after expiration")
+}
+
+func TestLocalCache_DefaultExpiration(t *testing.T) {
+	ctx := context.Background()
+	c := localcache.New[string](localcache.WithDefaultExpiration(20 * time.Millisecond))
+
+	key := "defaultExpiringKey"
+	value := "defaultExpiringValue"
+	// No duration specified, should use default expiration
+	c.Set(ctx, key, value, nil)
+
+	// Retrieve the item before it expires
+	gotValue, err := c.Get(ctx, key, nil)
+	require.NoError(t, err)
+	require.Equal(t, value, gotValue, "Expected to retrieve the item before expiration")
+
+	// Wait for the default expiration time
+	time.Sleep(30 * time.Millisecond)
+
+	// Attempt to retrieve the expired item
+	_, err = c.Get(ctx, key, nil)
+	require.ErrorIs(t, err, cache.ErrCacheMiss, "Expected ErrCacheMiss after default expiration")
+}
+
+func TestLocalCache_NoExpiration(t *testing.T) {
+	ctx := context.Background()
+	c := localcache.New[string](localcache.WithDefaultExpiration(20 * time.Millisecond))
+
+	key := "noExpireKey"
+	value := "noExpireValue"
+	duration := localcache.NoExpireDuration
+	c.Set(ctx, key, value, &duration)
+
+	// Wait for some time to ensure no expiration
+	time.Sleep(30 * time.Millisecond)
+
+	// Item should still be present
+	gotValue, err := c.Get(ctx, key, nil)
+	require.NoError(t, err)
+	require.Equal(t, value, gotValue, "Expected item to persist without expiration")
+}
+
+func TestLocalCache_CleanupExpiredItems(t *testing.T) {
+	ctx := context.Background()
+	c := localcache.New[string](localcache.WithCleanupInterval(10 * time.Millisecond))
+
+	key := "expiringKey"
+	value := "expiringValue"
+	duration := 20 * time.Millisecond
+	c.Set(ctx, key, value, &duration)
+
+	// Give some time for the cleanup goroutine to remove expired items
+	time.Sleep(30 * time.Millisecond)
+
+	// Use reflection to access the private items field
+	val := reflect.ValueOf(c).Elem().FieldByName("items")
+	if !val.IsValid() || val.Kind() != reflect.Map {
+		t.Fatalf("Expected items field to be a valid map")
+	}
+
+	require.Equal(t, 0, val.Len(), "Expected items to be empty after cleanup")
+}
+
+func TestLocalCache_StopCleanup(t *testing.T) {
+	ctx := context.Background()
+	c := localcache.New[string](localcache.WithCleanupInterval(10 * time.Millisecond))
+
+	// Assert that the cache instance has a StopCleanup method.
+	lc, ok := c.(interface{ StopCleanup() })
+	if !ok {
+		t.Fatalf("Expected localcache to have a StopCleanup method")
+	}
+	// Stop the cleanup process
+	lc.StopCleanup()
+
+	key := "expiringKey"
+	value := "expiringValue"
+	duration := 20 * time.Millisecond
+	c.Set(ctx, key, value, &duration)
+
+	// Wait for more than the cleanup interval to check if cleanup is stopped
+	time.Sleep(30 * time.Millisecond)
+
+	// Use reflection to access the private items field
+	val := reflect.ValueOf(c).Elem().FieldByName("items")
+	if !val.IsValid() || val.Kind() != reflect.Map {
+		t.Fatalf("Expected items field to be a valid map")
+	}
+
+	require.Equal(t, 1, val.Len(), "Expected 1 items in cache")
 }
 
 func TestLocalCache_Invalidate(t *testing.T) {
@@ -121,32 +238,6 @@ func TestLocalCache_InvalidateAll(t *testing.T) {
 		_, err := c.Get(ctx, key, nil)
 		require.ErrorIsf(t, err, cache.ErrCacheMiss, "Expected ErrCacheMiss for key %q after InvalidateAll", key)
 	}
-}
-
-func TestLocalCache_Get_CacheMiss(t *testing.T) {
-	ctx := context.Background()
-	c := localcache.New[string]()
-
-	key := "missingKey"
-
-	// Try to get a key that doesn't exist without an initializer
-	_, err := c.Get(ctx, key, nil)
-	require.ErrorIs(t, err, cache.ErrCacheMiss, "Expected ErrCacheMiss when getting a missing key without initializer")
-}
-
-func TestLocalCache_Get_InitializerError(t *testing.T) {
-	ctx := context.Background()
-	c := localcache.New[string]()
-
-	key := "initErrorKey"
-	expectedErr := errors.New("initializer error")
-
-	initializer := func() (string, *time.Duration, error) {
-		return "", nil, expectedErr
-	}
-
-	_, err := c.Get(ctx, key, initializer)
-	require.ErrorIs(t, err, expectedErr, "Expected error from initializer")
 }
 
 func TestLocalCache_Concurrency(t *testing.T) {

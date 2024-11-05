@@ -106,7 +106,7 @@ func (c *localcache[T]) Set(ctx context.Context, key string, value T, duration *
 	if duration != nil && pointer.GetValue(duration) != NoExpireDuration { // set expiration with input duration if it's not NoExpireDuration
 		expTime := time.Now().Add(pointer.GetValue(duration))
 		expiration = pointer.ToPointer(expTime)
-	} else if c.defaultExpireDuration != NoExpireDuration { // set expiration with defaultExpireDuration if it's not NoExpireDuration
+	} else if duration == nil && c.defaultExpireDuration != NoExpireDuration { // set expiration with defaultExpireDuration if it's not NoExpireDuration
 		expTime := time.Now().Add(c.defaultExpireDuration)
 		expiration = pointer.ToPointer(expTime)
 	}
