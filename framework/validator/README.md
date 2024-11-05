@@ -50,10 +50,28 @@ func main() {
 }
 ```
 ## Custom Validators
-You can create and register custom validators by implementing the [`CustomValidator`](custom_validator.go) interface and passing the custom validator when initializing the validator instance.
+You can create application-specific validation logic beyond the built-in rules provided by `validator/v10`. This package provides an interface called [`CustomValidator`](custom_validator.go), which allows you to define custom validation rules, tags, and error message translations.
 
-### Registering a Custom Validator
-To register a custom validator, implement the [`CustomValidator`](custom_validator.go) interface and use `WithCustomValidator` when creating the validator instance.
+To create a custom validator, you must implement the [`CustomValidator`](custom_validator.go) interface, which consists of three methods:
+```golang
+type CustomValidator interface {
+	// Tag returns the tag identifier used in struct field validation tags (e.g., `validate:"mytag"`).
+	Tag() string
+	// Func returns the validator.Func that performs the validation logic.
+	Func() validator.Func
+	// Translation returns the translation text and a custom translation function for the custom validator.
+	// If you wish to use the default translation, return an empty string and nil.
+	Translation() (translation string, customFunc validator.TranslationFunc)
+}
+```
+Each method in the [`CustomValidator`](custom_validator.go) interface has a specific purpose:
+1.	`Tag()`: Defines the unique identifier for your custom validation rule. This tag is used in struct field tags to apply the validator. For example, if `Tag()` returns `"mytag"`, you can use it in a struct as `validate:"mytag"`.
+2.	`Func()`: Specifies the validation logic. This method returns a function that implements the `validator.Func` type, which is called by the validator during the validation process. The function receives a `FieldLevel` instance representing the field to validate. You should return `true` if the field passes validation, and `false` otherwise.
+3.	`Translation()`: Defines the <u>error message</u> and <u>translation function</u> for this validator. If you want to use a custom error message format, return it in <u>`translation`</u> (using `{0}` for the field name and `{1}`, etc., for any parameters). The <u>`customFunc`</u> parameter allows additional customization for translating the error message, providing control over how the message displays.
+	- If you return `""` (empty string) and `nil` for `Translation()`, the default error message will be used.
+
+### Example: Creating a Custom Validator
+The following example demonstrates how to create a custom validator that always fails and provides a custom error message:
 ```golang
 package main
 
@@ -90,9 +108,14 @@ func (*MyValidator) Translation() (string, validatorV10.TranslationFunc) {
     return translationText, customTransFunc
 }
 ```
+**Explanation**
+- **Tag**: The `Tag()` method returns `"mytag"`, which you can use in struct tags like `validate:"mytag"`.
+- **Func**: The `Func()` method returns a function that always fails for demonstration purposes.
+- **Translation**: The `Translation()` method returns a custom <u>error message</u> and <u>translation function</u> The error message is `"{0} failed custom validation"`, where `{0}` will be replaced with the field name (`fe.Field()`).
 
 ### Using Custom Validators
-
+To register a custom validator, you need to pass an instance of the custom validator to the `NewValidator` function using the `WithCustomValidator` option. 
+The following example demonstrates how to use the custom validator created in the previous section:
 ```golang
 type Data struct {
     Field1 string `validate:"mytag"`
@@ -103,6 +126,7 @@ type Data struct {
 func main() {
     v, err := validator.NewValidator(
         validator.WithCustomValidator(new(MyValidator)),
+        // Add more custom validators here
     )
     if err != nil {
         fmt.Println("Error initializing validator:", err)
@@ -128,4 +152,5 @@ func main() {
     ```
 
 ## Examples
-You can find a complete working example in the repository under [framework/validator/example](example/).
+- You can find a complete working example in the repository under [framework/validator/example](example/).
+- You can find an implementation example of a custom validator in the repository under [framework/validator/custom_validator](custom_validator/).
