@@ -160,6 +160,14 @@ func TestLocalCache_CleanupExpiredItems(t *testing.T) {
 	// Give some time for the cleanup goroutine to remove expired items
 	time.Sleep(30 * time.Millisecond)
 
+	// Assert that the cache instance has a StopCleanup method.
+	lc, ok := c.(interface{ StopCleanup() })
+	if !ok {
+		t.Fatalf("Expected localcache to have a StopCleanup method")
+	}
+	// Stop the cleanup process
+	lc.StopCleanup()
+
 	// Use reflection to access the private items field
 	val := reflect.ValueOf(c).Elem().FieldByName("items")
 	if !val.IsValid() || val.Kind() != reflect.Map {
