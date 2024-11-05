@@ -17,6 +17,7 @@ test:
 test-coverage:
 	@go test $(GO_FILES)/... -race -covermode=atomic -coverprofile coverage.out
 	@go tool cover -func=coverage.out -o=coverage_summary.out
+	@cat coverage_summary.out | grep total | awk '{print "Total coverage: " $$3}'
 	
 open-coverage-report:
 	@go tool cover -html coverage.out -o coverage.html;
