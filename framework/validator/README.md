@@ -150,6 +150,38 @@ func main() {
     ```
     Validation failed: Field1 failed custom validation, Field2 is a required field, Field3 must be 130 or less
     ```
+### Using Custom Field Names in Validation Errors
+To make validation errors more readable, especially in APIs that use JSON serialization, you can customize field names in error messages to match the json struct tags. The package provides a convenient option for this with `WithTagNameFunc`.
+- **JSON Tag Name Function**: The package includes a predefined `JSONTagNameFunc` to automatically use JSON field names in validation error messages.
+### Registering JSONTagNameFunc
+To register `JSONTagNameFunc` when creating a Validator instance, use the `WithTagNameFunc` option:
+```golang
+v, err := validator.NewValidator(
+	validator.WithTagNameFunc(validator.JSONTagNameFunc),
+)
+```
+With this setup, any validation error messages will use the names specified in the json tags. For example:
+```golang
+type User struct {
+	FullName string `json:"full_name" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
+	Age      int    `json:"age" validate:"gte=0,lte=130"`
+}
+
+user := User{
+	Email: "invalid-email",
+	Age:   150,
+}
+
+err := v.ValidateStruct(user)
+if err != nil {
+	fmt.Println("Validation failed:", err)
+}
+```
+- **Expected Output:**
+    ```
+    Validation failed: full_name is a required field, email must be a valid email address, age must be 130 or less
+    ```
 
 ## Examples
 - You can find a complete working example in the repository under [framework/validator/example](example/).

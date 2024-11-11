@@ -39,13 +39,14 @@ func (*MyValidator) Translation() (string, validatorV10.TranslationFunc) {
 }
 
 type Data struct {
-	Field1 string `validate:"mytag"`
+	Field1 string `json:"field_1" validate:"mytag"`
 	Field2 string `validate:"required"`
 	Field3 int    `validate:"gte=0,lte=130"`
 }
 
 func main() {
 	v, err := validator.NewValidator(
+		validator.WithTagNameFunc(validator.JSONTagNameFunc),
 		validator.WithCustomValidator(new(MyValidator)),
 	)
 	if err != nil {

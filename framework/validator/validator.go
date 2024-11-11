@@ -3,6 +3,7 @@ package validator
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/go-playground/locales/en"
@@ -32,7 +33,7 @@ type ValidatorOption func(*validator.Validate, ut.Translator) error
 //	    // handle error
 //	}
 func NewValidator(opts ...ValidatorOption) (*Validator, error) {
-	v := validator.New()
+	v := validator.New(validator.WithRequiredStructEnabled())
 
 	// Initialize the English locale and the universal translator.
 	enLocale := en.New()
@@ -58,6 +59,24 @@ func NewValidator(opts ...ValidatorOption) (*Validator, error) {
 		validate:   v,
 		translator: translator,
 	}, nil
+}
+
+// WithTagNameFunc registers a custom function to derive field names in validation errors.
+// For example, you can use this to specify that validation errors should display `json` tag names.
+func WithTagNameFunc(tagNameFunc func(fld reflect.StructField) string) ValidatorOption {
+	return func(v *validator.Validate, _ ut.Translator) error {
+		v.RegisterTagNameFunc(tagNameFunc)
+		return nil
+	}
+}
+
+// JSONTagNameFunc extracts the field name from the `json` struct tag.
+var JSONTagNameFunc = func(fld reflect.StructField) string {
+	name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+	if name == "-" {
+		return ""
+	}
+	return name
 }
 
 // WithCustomValidator registers a custom validator along with its translation.

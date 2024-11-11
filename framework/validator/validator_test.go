@@ -123,3 +123,79 @@ func TestValidateStruct(t *testing.T) {
 		})
 	}
 }
+
+func TestWithTagNameFunc(t *testing.T) {
+	v, err := validator.NewValidator(
+		validator.WithTagNameFunc(validator.JSONTagNameFunc),
+	)
+	assert.NoError(t, err)
+	assert.NotNil(t, v)
+
+	type TestStruct struct {
+		FullName string `json:"full_name" validate:"required"`
+		Email    string `json:"-" validate:"required,email"`
+		Age      int    `json:"age" validate:"gte=0,lte=130"`
+	}
+
+	tests := []struct {
+		name    string
+		input   TestStruct
+		wantErr bool
+		wantMsg string
+	}{
+		{
+			name: "valid struct",
+			input: TestStruct{
+				FullName: "John Doe",
+				Email:    "test@example.com",
+				Age:      30,
+			},
+			wantErr: false,
+			wantMsg: "",
+		},
+		{
+			name: "missing required field (full_name)",
+			input: TestStruct{
+				Age: 30,
+			},
+			wantErr: true,
+			wantMsg: "full_name is a required field",
+		},
+		{
+			name: "field with json:\"-\" tag",
+			input: TestStruct{
+				FullName: "John Doe",
+				Email:    "",
+				Age:      30,
+			},
+			wantErr: true,
+			wantMsg: "Email is a required field",
+		},
+		{
+			name: "out of range field (age)",
+			input: TestStruct{
+				FullName: "John Doe",
+				Age:      150,
+			},
+			wantErr: true,
+			wantMsg: "age must be 130 or less",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := v.ValidateStruct(tt.input)
+
+			// Check if we expect an error
+			if tt.wantErr {
+				assert.Error(t, err)
+				// If an error is returned, check that it contains the expected message
+				if err != nil {
+					assert.Contains(t, err.Error(), tt.wantMsg, "Error message mismatch")
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
