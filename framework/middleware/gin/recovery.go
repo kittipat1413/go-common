@@ -55,10 +55,10 @@ func Recovery(opts ...RecoveryOption) gin.HandlerFunc {
 			if err := recover(); err != nil {
 				if logger != nil {
 					logger.Error(c.Request.Context(), "Panic recovered", nil, common_logger.Fields{
-						"error": err,
-						"request": common_logger.Fields{
+						"panic_info": common_logger.Fields{
 							"method": c.Request.Method,
-							"path":   c.Request.URL.Path,
+							"route":  c.FullPath(),
+							"error":  err,
 						},
 					})
 				}
