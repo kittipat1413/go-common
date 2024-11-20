@@ -52,11 +52,31 @@ func WithRequestIDGenerator(generator RequestIDGenerator) RequestIDOption {
 	}
 }
 
-// RequestID returns a Gin middleware that injects a request ID into the context.
-//   - The middleware retrieves the request ID from the incoming request headers using the specified header name.
-//   - If the request ID is not present or exceeds 64 characters in length, a new request ID is generated using the provided generator function.
-//   - The default generator function uses the xid package to generate a unique ID.
-//   - The request ID is then set in the response headers and stored in the context for downstream handlers.
+// RequestID returns a Gin middleware that injects a unique request ID into each HTTP request's context.
+//
+// The middleware performs the following tasks:
+//
+//  1. Extracts the request ID from the incoming request headers using the specified header name (default: "X-Request-ID").
+//  2. Validates the request ID to ensure it is not empty and does not exceed 64 characters. If invalid or missing, it generates a new request ID using the provided or default generator function.
+//  3. Sets the request ID in the response headers so that the client knows which request ID was assigned.
+//  4. Stores the request ID in the request context, making it accessible to downstream middlewares and handlers.
+//
+// Key Features:
+//   - Custom Header Name: Use `WithRequestIDHeader` to specify a custom header name for the request ID.
+//   - Custom ID Generator: Use `WithRequestIDGenerator` to provide a custom generator function for creating unique IDs.
+//   - Default Generator: By default, the middleware uses the `xid` package to generate compact and globally unique IDs.
+//   - Request Context Integration: The request ID is injected into the context, enabling downstream handlers to retrieve it using `GetRequestIDFromContext`.
+//
+// Example Usage:
+//
+//	router.Use(
+//		RequestID(
+//	    	WithRequestIDHeader("X-Custom-Request-ID"), // Use a custom header name.
+//	    	WithRequestIDGenerator(func() string {     // Use a custom generator function.
+//	        	return "custom-" + xid.New().String()
+//	    	}),
+//		),
+//	)
 func RequestID(opts ...RequestIDOption) gin.HandlerFunc {
 	// Set default options.
 	options := &requestIDOptions{
