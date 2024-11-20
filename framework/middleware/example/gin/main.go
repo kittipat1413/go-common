@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/kittipat1413/go-common/framework/logger"
+	common_logger "github.com/kittipat1413/go-common/framework/logger"
 	middleware "github.com/kittipat1413/go-common/framework/middleware/gin"
 	"github.com/kittipat1413/go-common/framework/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -20,9 +20,11 @@ to override the default service name and add resource attributes, run the follow
 	go run framework/middleware/example/gin/main.go
 
 Curl: To test the middleware, run the following curl commands:
+	curl -X GET http://localhost:8080/health
 	curl -X GET http://localhost:8080/panic
 	curl -X GET http://localhost:8080/trace
 	curl -v -X GET http://localhost:8080/request-id
+	curl -X GET http://localhost:8080/request-logger
 */
 
 func main() {
@@ -38,12 +40,14 @@ func main() {
 		}
 	}()
 
-	logger, _ := logger.NewLogger(logger.Config{
-		Level: logger.DEBUG,
-		Formatter: &logger.StructuredJSONFormatter{
+	logger, _ := common_logger.NewLogger(common_logger.Config{
+		Level: common_logger.DEBUG,
+		Formatter: &common_logger.StructuredJSONFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     true,
 		},
+		Environment: "local",
+		ServiceName: "gin-middleware-testing",
 	})
 
 	// Set Gin to release mode
@@ -51,13 +55,24 @@ func main() {
 	// Create a Gin router
 	router := gin.New()
 
-	// Add middlewares
+	// Add middlewares to the Gin router.
+	// The order of middlewares is important to ensure they function correctly:
 	var middlewares = []gin.HandlerFunc{
-		middleware.RequestID(middleware.WithRequestIDHeader("X-Request-ID")),
 		middleware.Trace(middleware.WithTracerProvider(tracerProvider)),
-		middleware.Recovery(middleware.WithRecoveryLogger(logger)),
+		middleware.RequestID(middleware.WithRequestIDHeader("X-Request-ID")),
+		middleware.RequestLogger(
+			middleware.WithRequestLogger(logger),
+			middleware.WithRequestLoggerFilter(func(req *http.Request) bool {
+				return req.URL.Path != "/health"
+			})),
+		middleware.Recovery(),
 	}
 	router.Use(middlewares...)
+
+	// Health check handler
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "UP"})
+	})
 
 	// Panic handler
 	router.GET("/panic", func(c *gin.Context) {
@@ -81,6 +96,13 @@ func main() {
 			return
 		}
 		c.String(http.StatusOK, requestID)
+	})
+
+	// Request logger handler
+	router.GET("/request-logger", func(c *gin.Context) {
+		logger := common_logger.FromContext(c.Request.Context())
+		logger.Info(c.Request.Context(), "Request logger handler", nil)
+		c.JSON(http.StatusOK, gin.H{"message": "OK"})
 	})
 
 	// Run the Gin server
