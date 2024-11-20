@@ -99,8 +99,12 @@ func RequestID(opts ...RequestIDOption) gin.HandlerFunc {
 		}
 
 		// Ensure the request ID is always set.
-		if requestID == "" && options.generator != nil {
-			requestID = options.generator()
+		if requestID == "" {
+			if options.generator != nil {
+				requestID = options.generator()
+			} else {
+				requestID = defaultRequestIDGenerator()
+			}
 		}
 
 		// Set the request ID in the response headers so the client knows which request ID was used.
