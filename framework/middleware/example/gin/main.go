@@ -18,6 +18,11 @@ Run Server:
 to override the default service name and add resource attributes, run the following command:
 	env OTEL_RESOURCE_ATTRIBUTES="deployment.environment=local,service.version=1.0" \
 	go run framework/middleware/example/gin/main.go
+
+Curl: To test the middleware, run the following curl commands:
+	curl -X GET http://localhost:8080/panic
+	curl -X GET http://localhost:8080/trace
+	curl -v -X GET http://localhost:8080/request-id
 */
 
 func main() {
@@ -48,6 +53,7 @@ func main() {
 
 	// Add middlewares
 	var middlewares = []gin.HandlerFunc{
+		middleware.RequestID(middleware.WithRequestIDHeader("X-Request-ID")),
 		middleware.Trace(middleware.WithTracerProvider(tracerProvider)),
 		middleware.Recovery(middleware.WithRecoveryLogger(logger)),
 	}
@@ -59,22 +65,26 @@ func main() {
 	})
 
 	// Trace handler
-	router.GET("/trace", traceHandler)
+	router.GET("/trace", func(c *gin.Context) {
+		// Create a span
+		_, span := trace.DefaultTracer().Start(c.Request.Context(), "traceHandler", oteltrace.WithSpanKind(oteltrace.SpanKindInternal))
+		defer span.End()
+		// Respond with the result
+		c.JSON(http.StatusOK, gin.H{"message": "OK"})
+	})
+
+	// Request ID handler
+	router.GET("/request-id", func(c *gin.Context) {
+		requestID, exists := middleware.GetRequestIDFromContext(c.Request.Context())
+		if !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "No Request ID"})
+			return
+		}
+		c.String(http.StatusOK, requestID)
+	})
 
 	// Run the Gin server
 	if err := router.Run(":8080"); err != nil {
 		fmt.Printf("Failed to run server: %v\n", err)
 	}
-}
-
-// traceHandler is a handler that creates a span and responds with a message.
-func traceHandler(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	// Create a span
-	_, span := trace.DefaultTracer().Start(ctx, "traceHandler", oteltrace.WithSpanKind(oteltrace.SpanKindInternal))
-	defer span.End()
-
-	// Respond with the result
-	c.JSON(http.StatusOK, gin.H{"message": "OK"})
 }
