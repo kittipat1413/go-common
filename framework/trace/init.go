@@ -16,7 +16,7 @@ import (
 )
 
 func DefaultTracer() trace.Tracer {
-	return otel.Tracer("go-common default")
+	return otel.Tracer("github.com/kittipat1413/go-common/framework/trace")
 }
 
 type ExporterType string
