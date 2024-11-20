@@ -136,7 +136,7 @@ func Trace(options ...TraceOption) gin.HandlerFunc {
 			spanName = fmt.Sprintf("%s %s", c.Request.Method, fullPath)
 		}
 		if spanName == "" {
-			spanName = fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path)
+			spanName = fmt.Sprintf("HTTP %s route not found", c.Request.Method)
 		}
 
 		// Start a new span with the extracted context.
