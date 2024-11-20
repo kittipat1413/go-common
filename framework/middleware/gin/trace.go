@@ -65,7 +65,35 @@ func WithSpanNameFormatter(formatter SpanNameFormatter) TraceOption {
 	}
 }
 
-// Trace creates a Gin middleware for tracing incoming HTTP requests.
+// Trace is a Gin middleware that integrates OpenTelemetry tracing into the request lifecycle.
+// The middleware creates a span for each incoming HTTP request and attaches it to the request context.
+//
+// The middleware performs the following actions:
+//  1. Initializes tracing options using the provided TraceOption functions or falls back to defaults.
+//     - If no tracer provider is provided, it uses the global tracer provider from OpenTelemetry.
+//     - If no propagators are specified, it uses the global text map propagators.
+//  2. Applies user-defined filters to determine whether a request should be traced.
+//  3. Extracts tracing context from the incoming request headers using the specified propagators.
+//  4. Determines the span name using a custom formatter or defaults to "<METHOD> <PATH>".
+//  5. Creates a new span and adds common HTTP attributes to the span (e.g., method, path, client IP).
+//  6. Passes the span context through the request for use by downstream handlers and middlewares.
+//  7. Records errors and sets the span status based on the HTTP response status code.
+//  8. Ends the span once the request processing is complete.
+//
+// Example Usage:
+//
+//	router.Use(
+//	    Trace(
+//	        WithTracerProvider(tracerProvider),
+//	        WithTracePropagators(propagators),
+//	        WithTraceFilter(func(req *http.Request) bool {
+//	            return req.Method != http.MethodOptions // Skip OPTIONS requests
+//	        }),
+//	        WithSpanNameFormatter(func(req *http.Request) string {
+//	            return fmt.Sprintf("CustomSpanName %s %s", req.Method, req.URL.Path)
+//	        }),
+//	    ),
+//	)
 func Trace(options ...TraceOption) gin.HandlerFunc {
 	// Initialize default configuration.
 	opts := &traceOptions{}
