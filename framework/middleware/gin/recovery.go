@@ -14,24 +14,24 @@ type recoveryOptions struct {
 }
 
 // RecoveryOptions is a function that configures recoveryOptions.
-type RecoveryOptions func(*recoveryOptions)
+type RecoveryOption func(*recoveryOptions)
 
 // WithLogger sets a custom logger for the Recovery middleware.
-func WithRecoveryLogger(logger common_logger.Logger) RecoveryOptions {
+func WithRecoveryLogger(logger common_logger.Logger) RecoveryOption {
 	return func(opts *recoveryOptions) {
 		opts.logger = logger
 	}
 }
 
 // WithRecoveryHandler sets a custom error handler for the Recovery middleware.
-func WithRecoveryHandler(handler func(c *gin.Context, err interface{})) RecoveryOptions {
+func WithRecoveryHandler(handler func(c *gin.Context, err interface{})) RecoveryOption {
 	return func(opts *recoveryOptions) {
 		opts.handler = handler
 	}
 }
 
 // Recovery returns a middleware that recovers from panics and handles errors using the provided options.
-func Recovery(opts ...RecoveryOptions) gin.HandlerFunc {
+func Recovery(opts ...RecoveryOption) gin.HandlerFunc {
 	// Initialize default options.
 	options := &recoveryOptions{
 		logger:  nil,                    // Default to nil logger.
