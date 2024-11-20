@@ -30,7 +30,32 @@ func WithRecoveryHandler(handler func(c *gin.Context, err interface{})) Recovery
 	}
 }
 
-// Recovery returns a middleware that recovers from panics and handles errors using the provided options.
+// Recovery returns a Gin middleware that recovers from panics during request handling and logs the error.
+//
+// The middleware performs the following tasks:
+//  1. Recovers from any panic that occurs in the middleware chain or route handlers.
+//  2. Logs the panic information (including HTTP method and route) using the provided logger or retrieves one from the context.
+//  3. Calls a custom error handler to generate a response, or defaults to a 500 Internal Server Error response if no custom handler is provided.
+//
+// Key Features:
+//   - Custom Logger: Use `WithRecoveryLogger` to specify a logger for capturing panic details. If no logger is provided, the middleware attempts to retrieve one from the context.
+//   - Custom Error Handler: Use `WithRecoveryHandler` to define a custom function for handling the panic and responding to the client.
+//   - Default Behavior: If no logger or custom handler is specified, the middleware logs the panic (using the context logger) and returns a 500 Internal Server Error response.
+//
+// Example Usage:
+//
+//	router.Use(
+//		Recovery(
+//	    	WithRecoveryLogger(logger), // Use a custom logger for panic recovery.
+//	    	WithRecoveryHandler(func(c *gin.Context, err interface{}) {
+//	        	// Custom error handling logic (e.g., custom JSON response).
+//	        	c.AbortWithStatusJSON(
+//					http.StatusInternalServerError,
+//					gin.H{"message": "Something went wrong. Please contact support.", "details": err}
+//				)
+//	    	}),
+//		),
+//	)
 func Recovery(opts ...RecoveryOption) gin.HandlerFunc {
 	// Initialize default options.
 	options := &recoveryOptions{
