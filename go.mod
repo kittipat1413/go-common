@@ -11,6 +11,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/rs/xid v1.6.0
 	github.com/sirupsen/logrus v1.9.3
+	github.com/sony/gobreaker v1.0.0
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/otel v1.32.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.30.0
