@@ -39,7 +39,8 @@ func main() {
     logger := logger.NewDefaultLogger()
 
     // Initialize the tracer
-    tracerProvider, err := trace.InitTracerProvider(ctx, "my-service", "localhost:4317", trace.ExporterGRPC)
+    endpoint := "localhost:4317"
+    tracerProvider, err := trace.InitTracerProvider(ctx, "my-service", &endpoint, trace.ExporterGRPC)
     if err != nil {
       // Handle error
       return
