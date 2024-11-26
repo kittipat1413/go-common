@@ -13,74 +13,63 @@ import (
 func TestNewBaseError(t *testing.T) {
 	// Test cases for creating a new BaseError
 	tests := []struct {
-		name          string
-		code          string
-		message       string
-		httpCode      int
-		data          interface{}
-		expectedError bool
-		expectedMsg   string
+		name             string
+		code             string
+		message          string
+		data             interface{}
+		expectedError    bool
+		expectedHttpCode int
+		expectedMsg      string
 	}{
 		{
-			name:          "valid BaseError creation",
-			code:          "20001",
-			message:       "valid error",
-			httpCode:      http.StatusBadRequest,
-			data:          nil,
-			expectedError: false,
-			expectedMsg:   "valid error",
+			name:             "valid BaseError creation",
+			code:             "400001",
+			message:          "valid error",
+			data:             nil,
+			expectedError:    false,
+			expectedHttpCode: http.StatusBadRequest,
+			expectedMsg:      "valid error",
 		},
 		{
-			name:          "BaseError with empty message, should use default",
-			code:          "50000",
-			message:       "",
-			httpCode:      http.StatusInternalServerError,
-			data:          nil,
-			expectedError: false,
-			expectedMsg:   "internal error",
+			name:             "BaseError with empty message, should use default",
+			code:             "500000",
+			message:          "",
+			data:             nil,
+			expectedError:    false,
+			expectedHttpCode: http.StatusInternalServerError,
+			expectedMsg:      "An internal server error occurred. Please try again later.",
 		},
 		{
-			name:          "BaseError with empty message and no default, should use generic message",
-			code:          "50001",
-			message:       "",
-			httpCode:      http.StatusInternalServerError,
-			data:          nil,
-			expectedError: false,
-			expectedMsg:   "an error occurred",
+			name:             "BaseError with empty message and no default, should use generic message",
+			code:             "500001",
+			message:          "",
+			data:             nil,
+			expectedError:    false,
+			expectedHttpCode: http.StatusInternalServerError,
+			expectedMsg:      "An unexpected error occurred. Please try again later.",
 		},
 		{
-			name:          "invalid code length",
-			code:          "123",
-			message:       "short code error",
-			httpCode:      http.StatusBadRequest,
-			data:          nil,
-			expectedError: true,
-			expectedMsg:   "",
+			name:             "invalid code length",
+			code:             "123",
+			message:          "short code error",
+			data:             nil,
+			expectedError:    true,
+			expectedHttpCode: http.StatusBadRequest,
+			expectedMsg:      "",
 		},
 		{
 			name:          "invalid category",
-			code:          "99001",
+			code:          "799001",
 			message:       "unknown category error",
-			httpCode:      http.StatusBadRequest,
 			data:          nil,
 			expectedError: true,
-			expectedMsg:   "",
-		},
-		{
-			name:          "invalid HTTP code",
-			code:          "20001",
-			message:       "valid error",
-			httpCode:      http.StatusOK,
-			data:          nil,
-			expectedError: true,
-			expectedMsg:   "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Attempt to create a new BaseError
-			baseErr, err := domain_error.NewBaseError(tt.code, tt.message, tt.httpCode, tt.data)
+			baseErr, err := domain_error.NewBaseError(tt.code, tt.message, tt.data)
 
 			// Verify the results
 			if tt.expectedError {
@@ -93,7 +82,7 @@ func TestNewBaseError(t *testing.T) {
 				// Verify the BaseError fields
 				assert.Equal(t, domain_error.GetFullCode(tt.code), baseErr.Code(), "unexpected error code")
 				assert.Equal(t, tt.expectedMsg, baseErr.GetMessage(), "unexpected error message")
-				assert.Equal(t, tt.httpCode, baseErr.GetHTTPCode(), "unexpected HTTP code")
+				assert.Equal(t, tt.expectedHttpCode, baseErr.GetHTTPCode(), "unexpected HTTP code")
 				assert.Equal(t, tt.data, baseErr.GetData(), "unexpected data")
 			}
 		})
@@ -103,10 +92,11 @@ func TestNewBaseError(t *testing.T) {
 func TestBaseErrorMethods(t *testing.T) {
 	// Create a sample BaseError for testing
 	domain_error.SetServicePrefix("TEST")
-	baseErr, _ := domain_error.NewBaseError("20001", "sample error", http.StatusBadRequest, "extra data")
+	baseErr, err := domain_error.NewBaseError("400001", "sample error", "extra data")
+	require.NoError(t, err, "expected no error when creating BaseError")
 
 	t.Run("Test Code() method", func(t *testing.T) {
-		assert.Equal(t, "TEST-20001", baseErr.Code(), "unexpected Code() output")
+		assert.Equal(t, "TEST-400001", baseErr.Code(), "unexpected Code() output")
 	})
 
 	t.Run("Test GetMessage() method", func(t *testing.T) {
@@ -142,7 +132,7 @@ func TestExtractBaseError(t *testing.T) {
 		{
 			name: "should return BaseError when input is BaseError",
 			prepareErr: func() error {
-				baseErr, _ := domain_error.NewBaseError("20001", "mock domain error", http.StatusBadRequest, nil)
+				baseErr, _ := domain_error.NewBaseError("400001", "mock domain error", nil)
 				return baseErr
 			},
 			expectedFound: true,
@@ -151,7 +141,7 @@ func TestExtractBaseError(t *testing.T) {
 		{
 			name: "should extract BaseError when directly embedded in a pointer struct",
 			prepareErr: func() error {
-				baseErr, _ := domain_error.NewBaseError("20001", "mock domain error", http.StatusBadRequest, nil)
+				baseErr, _ := domain_error.NewBaseError("400001", "mock domain error", nil)
 				return &MockDomainError{BaseError: baseErr}
 			},
 			expectedFound: true,
@@ -160,7 +150,7 @@ func TestExtractBaseError(t *testing.T) {
 		{
 			name: "should extract BaseError when directly embedded in a non-pointer struct",
 			prepareErr: func() error {
-				baseErr, _ := domain_error.NewBaseError("20001", "mock domain error", http.StatusBadRequest, nil)
+				baseErr, _ := domain_error.NewBaseError("400001", "mock domain error", nil)
 				return MockDomainError{BaseError: baseErr}
 			},
 			expectedFound: true,

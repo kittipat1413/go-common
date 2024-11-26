@@ -15,11 +15,3 @@ func SetServicePrefix(prefix string) {
 func GetServicePrefix() string {
 	return servicePrefix
 }
-
-/*
-GetFullCode constructs the full error code with the service prefix.
-Example: If servicePrefix is "USER-SVC" and code is "21000", it returns "USER-SVC-21000".
-*/
-func GetFullCode(code string) string {
-	return servicePrefix + "-" + code
-}

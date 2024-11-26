@@ -13,7 +13,7 @@ import (
 // To run this example with Gin, execute the following commands:
 // 1. go run main.go
 // 2. curl -X GET http://localhost:8080/users
-// 3. curl -X GET http://localhost:8080/custom-error
+// 3. curl -X GET http://localhost:8080/invalid-error
 // 4. curl -X POST http://localhost:8080/login -d '{"username": "admin", "password": "password"}'
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 
 	// Define routes.
 	router.GET("/users", GetUsers)
-	router.GET("/custom-error", GetCustomError)
+	router.GET("/invalid-error", GetInvalidCustomError)
 	router.POST("/login", Login)
 
 	// Start the server.
@@ -38,7 +38,7 @@ func main() {
 func GetUsers(c *gin.Context) {
 	users, err := getUsers()
 	if err != nil {
-		domainErr, _ := errors.NewNotFoundError()
+		domainErr := errors.NewNotFoundError("Users not found.", map[string]string{"resource": "USER"})
 		ErrorResp(c, errors.WrapError(err, domainErr))
 		return
 	}
@@ -57,8 +57,8 @@ func getUsers() (data []string, err error) {
 	return nil, sql.ErrNoRows
 }
 
-// GetCustomError handles GET /invalid-error requests.
-func GetCustomError(c *gin.Context) {
+// GetInvalidCustomError handles GET /invalid-error requests.
+func GetInvalidCustomError(c *gin.Context) {
 	err := &InvalidCustomError{}
 	ErrorResp(c, err)
 }
@@ -72,18 +72,14 @@ func Login(c *gin.Context) {
 
 	// Bind JSON input.
 	if err := c.ShouldBindJSON(&credentials); err != nil {
-		domainErr, newErr := NewMissingUserPasswordError()
-		if newErr != nil {
-			ErrorResp(c, newErr)
-			return
-		}
+		domainErr := NewMissingUserPasswordError()
 		ErrorResp(c, domainErr)
 		return
 	}
 
 	// Simulate authentication failure.
 	if credentials.Username != "admin" || credentials.Password != "password" {
-		domainErr, _ := errors.NewUnauthorizedError()
+		domainErr := errors.NewUnauthorizedError("", nil)
 		ErrorResp(c, domainErr)
 		return
 	}
@@ -101,8 +97,8 @@ func Login(c *gin.Context) {
 ////////////////////////////////////////////////////
 
 const (
-	// Error code in category 91xxx (Unauthorized Error)
-	StatusCodeMissingUserPassword = "91001"
+	// Error code in category 901xxx (Unauthorized Error)
+	StatusCodeMissingUserPassword = "901001"
 )
 
 // MissingUserPasswordError represents an error when username or password is missing.
@@ -111,19 +107,18 @@ type MissingUserPasswordError struct {
 }
 
 // NewMissingUserPasswordError creates a new MissingUserPasswordError instance.
-func NewMissingUserPasswordError() (*MissingUserPasswordError, error) {
+func NewMissingUserPasswordError() error {
 	baseErr, err := errors.NewBaseError(
 		StatusCodeMissingUserPassword,
 		"Missing username or password",
-		http.StatusUnauthorized,
 		nil,
 	)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("BaseError creation failed: %w", err)
 	}
 	return &MissingUserPasswordError{
 		BaseError: baseErr,
-	}, nil
+	}
 }
 
 // InvalidCustomError is an example error type that does not embed BaseError.
@@ -131,6 +126,10 @@ func NewMissingUserPasswordError() (*MissingUserPasswordError, error) {
 // be properly handled by the error handling functions, resulting in a
 // generic internal server error response.
 type InvalidCustomError struct{}
+
+func (e *InvalidCustomError) GetHTTPCode() int {
+	return http.StatusInternalServerError
+}
 
 func (e *InvalidCustomError) Code() string {
 	return "xyz-123"
@@ -140,20 +139,12 @@ func (e *InvalidCustomError) GetMessage() string {
 	return "custom error occurred"
 }
 
-func (e *InvalidCustomError) GetHTTPCode() int {
-	return http.StatusInternalServerError
+func (e *InvalidCustomError) GetData() interface{} {
+	return nil
 }
 
 func (e *InvalidCustomError) Error() string {
 	return e.GetMessage()
-}
-
-func (e *InvalidCustomError) Wrap(err error) error {
-	return fmt.Errorf("%w: %v", e, err)
-}
-
-func (e *InvalidCustomError) GetData() interface{} {
-	return nil
 }
 
 ////////////////////////////////////////////////////
@@ -184,8 +175,8 @@ func ErrorResp(c *gin.Context, err error) {
 // It handles DomainError and standard errors.
 func unwrapError(err error) ErrorResponse {
 	errResp := ErrorResponse{
-		Code:     errors.GetFullCode(errors.StatusCodeGenericInternalError),
-		Message:  err.Error(),
+		Code:     errors.GetFullCode(errors.StatusCodeGenericInternalServerError),
+		Message:  "An unexpected error occurred. Please try again later.",
 		HTTPCode: http.StatusInternalServerError,
 	}
 

@@ -3,7 +3,6 @@ package errors_test
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"testing"
 
 	domain_error "github.com/kittipat1413/go-common/framework/errors"
@@ -16,7 +15,7 @@ func TestWrapErrorWithPrefix(t *testing.T) {
 	type MockDomainError struct {
 		*domain_error.BaseError
 	}
-	baseErr, _ := domain_error.NewBaseError("20001", "mock domain error", http.StatusBadRequest, nil)
+	baseErr, _ := domain_error.NewBaseError("400001", "mock domain error", nil)
 	domainErr := &MockDomainError{BaseError: baseErr}
 
 	tests := []struct {
@@ -69,7 +68,7 @@ func TestWrapError(t *testing.T) {
 	type MockDomainError struct {
 		*domain_error.BaseError
 	}
-	baseErr, _ := domain_error.NewBaseError("20001", "mock domain error", http.StatusBadRequest, nil)
+	baseErr, _ := domain_error.NewBaseError("400001", "mock domain error", nil)
 	domainErr1 := &MockDomainError{BaseError: baseErr}
 	domainErr2 := &MockDomainError{BaseError: baseErr}
 
@@ -154,7 +153,7 @@ func TestUnwrapDomainError(t *testing.T) {
 		{
 			name: "should return DomainError when it is the error",
 			prepareErr: func() error {
-				baseErr, _ := domain_error.NewBaseError("20001", "mock domain error", http.StatusBadRequest, nil)
+				baseErr, _ := domain_error.NewBaseError("400001", "mock domain error", nil)
 				domainErr := &MockDomainError{BaseError: baseErr}
 				return domainErr
 			},
@@ -172,7 +171,7 @@ func TestUnwrapDomainError(t *testing.T) {
 		{
 			name: "should return DomainError when it exists in the error chain",
 			prepareErr: func() error {
-				baseErr, _ := domain_error.NewBaseError("21001", "mock domain error", http.StatusBadRequest, nil)
+				baseErr, _ := domain_error.NewBaseError("400001", "mock domain error", nil)
 				domainErr := &MockDomainError{BaseError: baseErr}
 				return fmt.Errorf("wrapped error: %w", domainErr)
 			},
@@ -182,7 +181,7 @@ func TestUnwrapDomainError(t *testing.T) {
 		{
 			name: "should unwrap multiple layers to find DomainError",
 			prepareErr: func() error {
-				baseErr, _ := domain_error.NewBaseError("22001", "deeply wrapped domain error", http.StatusConflict, nil)
+				baseErr, _ := domain_error.NewBaseError("400001", "deeply wrapped domain error", nil)
 				domainErr := &MockDomainError{BaseError: baseErr}
 				wrappedErr := fmt.Errorf("level 1: %w", domainErr)
 				wrappedErr = fmt.Errorf("level 2: %w", wrappedErr)
@@ -195,7 +194,7 @@ func TestUnwrapDomainError(t *testing.T) {
 		{
 			name: "should return DomainError when it is wrapped with WrapError",
 			prepareErr: func() error {
-				baseErr, _ := domain_error.NewBaseError("21001", "mock domain error", http.StatusBadRequest, nil)
+				baseErr, _ := domain_error.NewBaseError("400001", "mock domain error", nil)
 				domainErr := &MockDomainError{BaseError: baseErr}
 				return domain_error.WrapError(errors.New("wrapped error"), domainErr)
 			},
@@ -205,7 +204,7 @@ func TestUnwrapDomainError(t *testing.T) {
 		{
 			name: "should unwrap multiple layers to find DomainError when it is wrapped with WrapError",
 			prepareErr: func() error {
-				baseErr, _ := domain_error.NewBaseError("22001", "deeply wrapped domain error", http.StatusConflict, nil)
+				baseErr, _ := domain_error.NewBaseError("400001", "deeply wrapped domain error", nil)
 				domainErr := &MockDomainError{BaseError: baseErr}
 				wrappedErr := domain_error.WrapError(errors.New("level 1"), domainErr)
 				wrappedErr = domain_error.WrapError(errors.New("level 2"), wrappedErr)

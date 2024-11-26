@@ -2,62 +2,62 @@ package errors
 
 import "fmt"
 
-type InternalServerError struct {
+type AuthenticationError struct {
 	*BaseError
 }
 
-// NewInternalServerError creates a new InternalServerError instance using the generic internal error code.
+// NewAuthenticationError creates a new AuthenticationError instance using the generic authentication error code.
 // If the `message` parameter is an empty string (""), the default message for the error code will be used.
-func NewInternalServerError(message string, data interface{}) error {
+func NewAuthenticationError(message string, data interface{}) error {
 	baseErr, err := NewBaseError(
-		StatusCodeGenericInternalServerError,
+		StatusCodeGenericAuthError,
 		message,
 		data,
 	)
 	if err != nil {
 		return fmt.Errorf("BaseError creation failed: %w", err)
 	}
-	return &InternalServerError{
+	return &AuthenticationError{
 		BaseError: baseErr,
 	}
 }
 
-type DatabaseError struct {
+type UnauthorizedError struct {
 	*BaseError
 }
 
-// NewDatabaseError creates a new DatabaseError instance using the generic database error code.
+// NewUnauthorizedError creates a new UnauthorizedError instance using the generic unauthorized error code.
 // If the `message` parameter is an empty string (""), the default message for the error code will be used.
-func NewDatabaseError(message string, data interface{}) error {
+func NewUnauthorizedError(message string, data interface{}) error {
 	baseErr, err := NewBaseError(
-		StatusCodeGenericDatabaseError,
+		StatusCodeGenericUnauthorizedError,
 		message,
 		data,
 	)
 	if err != nil {
 		return fmt.Errorf("BaseError creation failed: %w", err)
 	}
-	return &DatabaseError{
+	return &UnauthorizedError{
 		BaseError: baseErr,
 	}
 }
 
-type ThirdPartyError struct {
+type ForbiddenError struct {
 	*BaseError
 }
 
-// NewThirdPartyError creates a new ThirdPartyError instance using the generic third-party error code.
+// NewForbiddenError creates a new ForbiddenError instance using the generic forbidden error code.
 // If the `message` parameter is an empty string (""), the default message for the error code will be used.
-func NewThirdPartyError(message string, data interface{}) error {
+func NewForbiddenError(message string, data interface{}) error {
 	baseErr, err := NewBaseError(
-		StatusCodeGenericThirdPartyError,
+		StatusCodeGenericForbiddenError,
 		message,
 		data,
 	)
 	if err != nil {
 		return fmt.Errorf("BaseError creation failed: %w", err)
 	}
-	return &ThirdPartyError{
+	return &ForbiddenError{
 		BaseError: baseErr,
 	}
 }

@@ -1,105 +1,105 @@
 package errors
 
-import "net/http"
+import "fmt"
+
+type ClientError struct {
+	*BaseError
+}
+
+// NewClientError creates a new ClientError instance using the generic client error code.
+// If the `message` parameter is an empty string (""), the default message for the error code will be used.
+func NewClientError(message string, data interface{}) error {
+	baseErr, err := NewBaseError(
+		StatusCodeGenericClientError,
+		message,
+		data,
+	)
+	if err != nil {
+		return fmt.Errorf("BaseError creation failed: %w", err)
+	}
+	return &ClientError{
+		BaseError: baseErr,
+	}
+}
 
 type BadRequestError struct {
 	*BaseError
 }
 
-// NewBadRequestError creates a new BadRequestError. It uses the generic unauthorized error code and default message.
-func NewBadRequestError() (*BadRequestError, error) {
+// NewBadRequestError creates a new BadRequestError instance using the generic bad request error code.
+// If the `message` parameter is an empty string (""), the default message for the error code will be used.
+func NewBadRequestError(message string, data interface{}) error {
 	baseErr, err := NewBaseError(
 		StatusCodeGenericBadRequestError,
-		"", // Empty message to use the default message
-		http.StatusBadRequest,
-		nil,
+		message,
+		data,
 	)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("BaseError creation failed: %w", err)
 	}
 	return &BadRequestError{
 		BaseError: baseErr,
-	}, nil
-}
-
-type InvalidParametersError struct {
-	*BaseError
-}
-
-// NewInvalidParametersError creates a new InvalidParametersError. It uses the generic invalid parameters error code and default message.
-func NewInvalidParametersError() (*InvalidParametersError, error) {
-	baseErr, err := NewBaseError(
-		StatusCodeGenericInvalidParameters,
-		"", // Empty message to use the default message
-		http.StatusBadRequest,
-		nil,
-	)
-	if err != nil {
-		return nil, err
 	}
-	return &InvalidParametersError{
-		BaseError: baseErr,
-	}, nil
-}
-
-type DuplicatedEntryError struct {
-	*BaseError
-}
-
-// NewDuplicatedEntryError creates a new DuplicatedEntryError. It uses the generic duplicated entry error code and default message.
-func NewDuplicatedEntryError() (*DuplicatedEntryError, error) {
-	baseErr, err := NewBaseError(
-		StatusCodeGenericDuplicatedEntry,
-		"", // Empty message to use the default message
-		http.StatusConflict,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &DuplicatedEntryError{
-		BaseError: baseErr,
-	}, nil
 }
 
 type NotFoundError struct {
 	*BaseError
 }
 
-// NewNotFoundError creates a new NotFoundError. It uses the generic not found error code and default message.
-func NewNotFoundError() (*NotFoundError, error) {
+// NewNotFoundError creates a new NotFoundError instance using the generic not found error code.
+// If the `message` parameter is an empty string (""), the default message for the error code will be used.
+func NewNotFoundError(message string, data interface{}) error {
 	baseErr, err := NewBaseError(
 		StatusCodeGenericNotFoundError,
-		"", // Empty message to use the default message
-		http.StatusNotFound,
-		nil,
+		message,
+		data,
 	)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("BaseError creation failed: %w", err)
 	}
 	return &NotFoundError{
 		BaseError: baseErr,
-	}, nil
+	}
+}
+
+type ConflictError struct {
+	*BaseError
+}
+
+// NewConflictError creates a new ConflictError instance using the generic conflict error code.
+// If the `message` parameter is an empty string (""), the default message for the error code will be used.
+func NewConflictError(message string, data interface{}) error {
+	baseErr, err := NewBaseError(
+		StatusCodeGenericConflictError,
+		message,
+		data,
+	)
+	if err != nil {
+		return fmt.Errorf("BaseError creation failed: %w", err)
+	}
+	return &ConflictError{
+		BaseError: baseErr,
+	}
 }
 
 type UnprocessableEntityError struct {
 	*BaseError
 }
 
-// NewUnprocessableEntityError creates a new UnprocessableEntityError. It uses the generic unprocessable entity error code and default message.
-func NewUnprocessableEntityError() (*UnprocessableEntityError, error) {
+// NewUnprocessableEntityError creates a new UnprocessableEntityError instance using the generic unprocessable entity error code.
+// If the `message` parameter is an empty string (""), the default message for the error code will be used.
+func NewUnprocessableEntityError(message string, data interface{}) error {
 	baseErr, err := NewBaseError(
-		StatusCodeGenericUnprocessableEntity,
-		"", // Empty message to use the default message
-		http.StatusUnprocessableEntity,
-		nil,
+		StatusCodeGenericUnprocessableEntityError,
+		message,
+		data,
 	)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("BaseError creation failed: %w", err)
 	}
 	return &UnprocessableEntityError{
 		BaseError: baseErr,
-	}, nil
+	}
 }
 
 // Additional error types can be added here following the same pattern.

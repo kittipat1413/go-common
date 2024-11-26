@@ -13,6 +13,10 @@ type BaseError struct {
 	data     interface{}
 }
 
+func (e *BaseError) GetHTTPCode() int {
+	return e.httpCode
+}
+
 func (e *BaseError) Code() string {
 	return GetFullCode(e.code)
 }
@@ -21,50 +25,49 @@ func (e *BaseError) GetMessage() string {
 	return e.message
 }
 
-func (e *BaseError) GetHTTPCode() int {
-	return e.httpCode
+func (e *BaseError) GetData() interface{} {
+	return e.data
 }
 
 func (e *BaseError) Error() string {
 	return e.GetMessage()
 }
 
-func (e *BaseError) GetData() interface{} {
-	return e.data
-}
-
 /*
-NewBaseError creates a new BaseError instance. If message is empty, it uses the default message from getDefaultMessages().
+NewBaseError creates a new BaseError instance. If the message is empty, it uses the default message
+from `getDefaultMessages()` based on the error code.
 
-The error code should follow the 'xyzzz' convention:
+The error code should follow the 'xyyzzz' convention:
   - 'x' (first digit): main error category.
-  - 'y' (second digit): subcategory.
+  - 'yy' (second digit): subcategory.
   - 'zzz' (last three digits): specific error detail.
 
-The function validates the 'xy' part of the error code against valid categories and the HTTP status code against the category.
+**Note:** The 'xyy' prefix of the code must match a valid category defined in `validCategories`.
 */
-func NewBaseError(code, message string, httpCode int, data interface{}) (*BaseError, error) {
+func NewBaseError(code, message string, data interface{}) (*BaseError, error) {
 	// Validate the error code length
-	if len(code) < 5 {
-		return nil, fmt.Errorf("error creation failed: invalid error code format %s", code)
+	const codeLength = 6
+	if len(code) != codeLength {
+		return nil, fmt.Errorf("error creation failed: error code '%s' must be exactly %d characters", code, codeLength)
 	}
 
-	// Extract 'xy' from the error code
-	xy := code[:2]
+	// Extract the category 'xyy' from the error code
+	xyy := code[:3]
 
-	// Validate 'xy' category
-	if !IsValidCategory(xy) {
-		return nil, fmt.Errorf("error creation failed: invalid category %s", xy)
+	// Validate the extracted category
+	if !IsValidCategory(xyy) {
+		return nil, fmt.Errorf("error creation failed: invalid category '%s' in code '%s'", xyy, code)
 	}
-	// Validate the HTTP status code against the category
-	if httpCode != GetCategoryHTTPStatus(xy) {
-		return nil, fmt.Errorf("error creation failed: invalid HTTP status code %d for category %s", httpCode, xy)
-	}
-	// Use default message if none provided
+
+	// Determine the HTTP status code for the category
+	httpCode := GetCategoryHTTPStatus(xyy)
+
+	// Assign default message if no custom message is provided
 	if message == "" {
 		message = getDefaultMessages(code)
 	}
 
+	// Create and return the BaseError instance
 	return &BaseError{
 		code:     code,
 		message:  message,
