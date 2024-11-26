@@ -55,7 +55,6 @@ func WithRequestIDGenerator(generator RequestIDGenerator) RequestIDOption {
 // RequestID returns a Gin middleware that injects a unique request ID into each HTTP request's context.
 //
 // The middleware performs the following tasks:
-//
 //  1. Extracts the request ID from the incoming request headers using the specified header name (default: "X-Request-ID").
 //  2. Validates the request ID to ensure it is not empty and does not exceed 64 characters. If invalid or missing, it generates a new request ID using the provided or default generator function.
 //  3. Sets the request ID in the response headers so that the client knows which request ID was assigned.
