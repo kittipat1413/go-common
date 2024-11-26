@@ -71,12 +71,13 @@ Implements distributed tracing capabilities to monitor and debug microservices.
   - Captures spans and context propagation.
   - Minimal performance overhead.
 
-### [Error](/framework/errors/) and Response Handler
-Standardizes error handling and HTTP responses.
+### [Error](/framework/errors/)
+Standardizes error handling and response formatting.
 - Features:
   - Consistent error formatting and wrapping.
-  - Unified response structure.
-  - Integration with Gin middleware.
+  - Error codes and messages.
+  - HTTP status code mapping.
+  - Error response generation.
 
 ### [Event Package](/framework//event/)
 Handles event-driven workflows, including message parsing and callback mechanisms.
