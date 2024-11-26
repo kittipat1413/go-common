@@ -17,7 +17,7 @@ This repository serves as a central codebase for common functionalities and util
 - Accelerate development by providing ready-to-use components.
 
 ## Installation
-Include the framework in your project by adding it to your go.mod file:
+Include the framework in your project by adding it to your `go.mod` file:
 ```bash
 go get github.com/kittipat1413/go-common
 ```
@@ -27,21 +27,28 @@ go get github.com/kittipat1413/go-common
 ```golang
 import (
     "github.com/kittipat1413/go-common/framework/logger"
-    "github.com/kittipat1413/go-common/framework/event"
+    "github.com/kittipat1413/go-common/framework/trace"
     // ... other imports
 )
 ```
 2. Initialize Components
-Set up the components you need, such as the logger and event handler.
+Set up the components you need, such as the logger and tracer, in your application's entry point.
 ```golang
 func main() {
     // Initialize the logger
-    logger := logger.NewLogger()
+    logger := logger.NewDefaultLogger()
 
-    // Initialize the event handler
-    eventHandler := event.NewEventHandler(
-        // Custom configurations if needed
-    )
+    // Initialize the tracer
+    tracerProvider, err := trace.InitTracerProvider(ctx, "my-service", "localhost:4317", trace.ExporterGRPC)
+    if err != nil {
+      // Handle error
+      return
+    }
+    defer func() {
+      if err := tracerProvider.Shutdown(ctx); err != nil {
+        // Handle error
+      }
+    }()
 
     // ... rest of your application setup
 }
@@ -53,8 +60,8 @@ Provides a structured, context-aware logging interface using logrus. Designed fo
 - Features:
   - Configurable log levels.
   - Structured logging with fields.
-  - Context propagation for tracing (trace_id, span_id).
-  - Flexible output destinations (stdout, files, etc.).
+  - Context propagation for tracing (`trace_id`, `span_id`).
+  - Flexible output destinations (`stdout`, `files`, etc.).
   - No-op logger for testing.
 
 ### [Tracer](/framework/trace/)
@@ -78,9 +85,10 @@ Handles event-driven workflows, including message parsing and callback mechanism
   - Defining and processing event messages with flexible, user-defined payload types.
   - Generic payload support with Go generics.
 
-### Utilities
+### [Utilities](/util/)
 A collection of helper functions and common utilities.
 - Features:
   - Date and time parsing.
   - String manipulation.
   - Configuration loading (e.g., from environment variables, config files).
+  - etc.
