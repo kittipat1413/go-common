@@ -6,7 +6,7 @@
 The errors package provides a centralized error handling library for Go applications. It standardizes error codes, messages, and HTTP status codes across services, making error management consistent and efficient.
 
 ## Features
-- **Standardized Error Codes**: Uses a consistent error code format (`xyzzz`) across services.
+- **Standardized Error Codes**: Uses a consistent error code format (`xyyzzz`) across services.
 - **Service Prefixes**: Allows setting a service-specific prefix for error codes.
 - **Domain Errors**: Provides a `DomainError` interface for custom errors.
 - **Base Error Embedding**: Encourages embedding `BaseError` for consistency.
@@ -38,7 +38,12 @@ import (
 )
 
 const (
-    StatusCodeUserNotFound = "23001"
+    // StatusCodeUserNotFound indicates that the requested user could not be found.
+    // Error Code Convention:
+    // - Main Category: 4 (Client Errors)
+    // - Subcategory: 02 (Not Found)
+    // - Specific Error Code: 001 (Defined by the service)
+    StatusCodeUserNotFound = "402001"
 )
 
 type UserNotFoundError struct {
@@ -49,7 +54,6 @@ func NewUserNotFoundError(userID string) (*UserNotFoundError, error) {
     baseErr, err := errors.NewBaseError(
         StatusCodeUserNotFound,
         fmt.Sprintf("User with ID %s not found", userID),
-        http.StatusNotFound,
         map[string]string{"user_id": userID},
     )
     if err != nil {
@@ -64,13 +68,12 @@ returning only the custom error. You can handle internal errors by:
 
 - **Panicking** 
 
-    If `errors.NewBaseError` returns an `error`, it likely indicates a misconfiguration or coding error (e.g., invalid status code or error code). In such cases, it's acceptable to panic during development to catch the issue early.
+    If `errors.NewBaseError` returns an `error`, it likely indicates a misconfiguration or coding error (e.g., invalid error code). In such cases, it's acceptable to panic during development to catch the issue early.
     ```golang
     func NewUserNotFoundError(userID string) *UserNotFoundError {
         baseErr, err := errors.NewBaseError(
             StatusCodeUserNotFound,
             fmt.Sprintf("User with ID %s not found", userID),
-            http.StatusNotFound,
             map[string]string{"user_id": userID},
         )
         if err != nil {
@@ -87,7 +90,6 @@ returning only the custom error. You can handle internal errors by:
         baseErr, err := errors.NewBaseError(
             StatusCodeUserNotFound,
             fmt.Sprintf("User with ID %s not found", userID),
-            http.StatusNotFound,
             map[string]string{"user_id": userID},
         )
         if err != nil {
@@ -106,11 +108,12 @@ returning only the custom error. You can handle internal errors by:
         "fmt"
         "log"
         "net/http"
+        "github.com/kittipat1413/go-common/framework/errors"
     )
 
     // Predefined errors as package-level variables.
     var (
-        ErrInvalidParameters *InvalidParametersError
+        ErrBadRequest        *BadRequestError
         ErrNotFound          *NotFoundError
     )
 
@@ -118,10 +121,10 @@ returning only the custom error. You can handle internal errors by:
     func init() {
         var err error
 
-        // Initialize InvalidParametersError
-        ErrInvalidParameters, err = newInvalidParametersError()
+        // Initialize BadRequestError
+        ErrBadRequest, err = newBadRequestError()
         if err != nil {
-            log.Fatal(fmt.Sprintf("failed to initialize ErrInvalidParameters: %v", err))
+            log.Fatal(fmt.Sprintf("failed to initialize ErrBadRequest: %v", err))
         }
 
         // Initialize NotFoundError
@@ -131,23 +134,22 @@ returning only the custom error. You can handle internal errors by:
         }
     }
 
-    // InvalidParametersError is a predefined error for invalid parameters.
-    type InvalidParametersError struct {
+    // BadRequestError is a predefined error for bad request cases.
+    type BadRequestError struct {
         *BaseError
     }
 
-    // Helper function to initialize InvalidParametersError.
-    func newInvalidParametersError() (*InvalidParametersError, error) {
-        baseErr, err := NewBaseError(
-            StatusCodeGenericInvalidParameters,
+    // Helper function to initialize BadRequestError.
+    func newBadRequestError() (*BadRequestError, error) {
+        baseErr, err := errors.NewBaseError(
+            StatusCodeGenericBadRequestError,
             "", // Empty message to use the default message.
-            http.StatusBadRequest,
             nil,
         )
         if err != nil {
             return nil, err
         }
-        return &InvalidParametersError{BaseError: baseErr}, nil
+        return &BadRequestError{BaseError: baseErr}, nil
     }
 
     // NotFoundError is a predefined error for not found cases.
@@ -157,10 +159,9 @@ returning only the custom error. You can handle internal errors by:
 
     // Helper function to initialize NotFoundError.
     func newNotFoundError() (*NotFoundError, error) {
-        baseErr, err := NewBaseError(
+        baseErr, err := errors.NewBaseError(
             StatusCodeGenericNotFoundError,
             "", // Empty message to use the default message.
-            http.StatusNotFound,
             nil,
         )
         if err != nil {
@@ -169,7 +170,7 @@ returning only the custom error. You can handle internal errors by:
         return &NotFoundError{BaseError: baseErr}, nil
     }
     ```
-    > After defining these errors, you can use them directly in your code by referencing `myerrors.ErrInvalidParameters` or `myerrors.ErrNotFound`. Since they are pre-initialized at the package level, they are always available without needing additional error handling for creation.
+    > After defining these errors, you can use them directly in your code by referencing `myerrors.ErrBadRequest` or `myerrors.ErrNotFound`. Since they are pre-initialized at the package level, they are always available without needing additional error handling for creation.
 
 ### Using the Error Handling Utilities
 
@@ -188,7 +189,7 @@ if err != nil {
     // Creating a domain-specific error
     domainErr := errors.New("user not found")
 
-    // Wrapping the domain error with the original error
+    // Wrapping the domain error around the original error
     return errors.WrapError(err, domainErr)
 }
 ```
@@ -204,26 +205,28 @@ func handleError(err error) {
 ```
 
 ## Error Code Convention
-Error codes follow the `xyzzz` format:
-- `x`: Main category (e.g., 2 for Client Errors).
-- `y`: Subcategory (e.g., 1 for Invalid Parameters).
+Error codes follow the `xyyzzz` format:
+- `x`: Main category (e.g., 4 for Client Errors).
+- `yy`: Subcategory (e.g., 01 for Bad Request Errors).
 - `zzz`: Specific error code (e.g., 001 for a particular invalid parameter).
-> **Example**: `21001` could represent an invalid username parameter.
+> **Example**: `401001` could represent an invalid username parameter.
 
 ## Error Categories
 Defined categories and their descriptions:
-- `10`: Success
-- `20`: Client Errors
-    - `21`: Invalid Parameters
-    - `22`: Duplicated Entry
-    - `23`: Not Found
-    - `24`: Unprocessable Entity
-- `50`: Internal Errors
-    - `51`: Database Errors
-    - `52`: Third-party Errors
-- `90`: Security Errors
-    - `91`: Unauthorized
-    - `92`: Forbidden
+- `200zzz`: Success
+    - `201zzz`: Partial Success
+    - `202zzz`: Accepted
+- `400zzz`: Client Errors
+    - `401zzz`: Bad Request
+    - `402zzz`: Not Found
+    - `403zzz`: Conflict
+    - `404zzz`: Unprocessable Entity
+- `500zzz`: Server Errors
+    - `501zzz`: Database Errors
+    - `502zzz`: 3rd Party Errors
+- `900zzz`: Security Errors
+    - `901zzz`: Unauthorized
+    - `902zzz`: Forbidden
 > The validCategories map in `categories.go` maintains the valid categories and their descriptions.
 
 ## Examples

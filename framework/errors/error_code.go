@@ -19,8 +19,8 @@ const (
 	StatusCodeGenericConflictError            = "403000" // Conflict (e.g., resource already exists)
 	StatusCodeGenericUnprocessableEntityError = "404000" // Unprocessable Entity (e.g., validation error)
 
-	// Internal Errors (5yyzzz)
-	StatusCodeGenericInternalServerError = "500000" // General Internal Error
+	// Server Errors (5yyzzz)
+	StatusCodeGenericInternalServerError = "500000" // General Internal Server Error
 	StatusCodeGenericDatabaseError       = "501000" // Database Error
 	StatusCodeGenericThirdPartyError     = "502000" // Third-party Error
 
