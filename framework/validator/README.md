@@ -150,6 +150,8 @@ func main() {
     ```
     Validation failed: Field1 failed custom validation, Field2 is a required field, Field3 must be 130 or less
     ```
+> Note: The package is built to make adding your own validators straightforward. If you need a domain-specific custom validator, you can implement the `CustomValidator` interface and use it directly in your codebase, without waiting for a merge into `go-common`. If you feel your custom validator could benefit others, consider sharing it here via a pull request or issue.
+
 ### Using Custom Field Names in Validation Errors
 To make validation errors more readable, especially in APIs that use JSON serialization, you can customize field names in error messages to match the json struct tags. The package provides a convenient option for this with `WithTagNameFunc`.
 - **JSON Tag Name Function**: The package includes a predefined `JSONTagNameFunc` to automatically use JSON field names in validation error messages.
