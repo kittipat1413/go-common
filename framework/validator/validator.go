@@ -128,3 +128,30 @@ func (v *Validator) ValidateStruct(s interface{}) error {
 	}
 	return nil
 }
+
+// Struct validates the provided struct using the validator instance.
+// This method is introduced for compatibility with validator v10, which expects a
+// method named Struct to perform validation on structs.
+//
+// It uses the same underlying validation logic as ValidateStruct, translating
+// validation error messages using the provided translator instance.
+//
+// Example:
+//
+//	err := v.Struct(myStruct)
+//	if err != nil {
+//	    // Handle validation errors
+//	}
+func (v *Validator) Struct(s interface{}) error {
+	if err := v.validate.Struct(s); err != nil {
+		if ve, ok := err.(validator.ValidationErrors); ok {
+			errMsgs := make([]string, len(ve))
+			for i, fe := range ve {
+				errMsgs[i] = fe.Translate(v.translator)
+			}
+			return errors.New(strings.Join(errMsgs, ", "))
+		}
+		return err
+	}
+	return nil
+}

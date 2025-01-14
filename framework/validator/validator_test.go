@@ -109,7 +109,18 @@ func TestValidateStruct(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := v.ValidateStruct(tt.input)
+			// Check if we expect an error
+			if tt.wantErr {
+				assert.Error(t, err)
+				// If an error is returned, check that it contains the expected message
+				if err != nil {
+					assert.Contains(t, err.Error(), tt.wantMsg, "Error message mismatch")
+				}
+			} else {
+				assert.NoError(t, err)
+			}
 
+			err = v.Struct(tt.input)
 			// Check if we expect an error
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -185,7 +196,18 @@ func TestWithTagNameFunc(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := v.ValidateStruct(tt.input)
+			// Check if we expect an error
+			if tt.wantErr {
+				assert.Error(t, err)
+				// If an error is returned, check that it contains the expected message
+				if err != nil {
+					assert.Contains(t, err.Error(), tt.wantMsg, "Error message mismatch")
+				}
+			} else {
+				assert.NoError(t, err)
+			}
 
+			err = v.Struct(tt.input)
 			// Check if we expect an error
 			if tt.wantErr {
 				assert.Error(t, err)
