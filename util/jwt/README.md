@@ -8,7 +8,7 @@ JWT Manager provides a reusable and extensible interface for creating and valida
 
 ## Usage
 ### JWTManager Interface
-```golang
+```go
 type JWTManager interface {
     CreateToken(ctx context.Context, claims jwt.Claims) (string, error)
     ParseAndValidateToken(ctx context.Context, tokenString string, claims jwt.Claims) error
@@ -27,7 +27,7 @@ type JWTManager interface {
   - _Returns_: Error if validation fails; otherwise, populates the provided claims struct.
 
 ## Examples
-```golang
+```go
 package main
 
 import (

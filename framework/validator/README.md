@@ -14,7 +14,7 @@ The validator package provides an extensible, customizable validation system bui
 ## Usage
 
 ### Basic Validation
-```golang
+```go
 package main
 
 import (
@@ -53,7 +53,7 @@ func main() {
 You can create application-specific validation logic beyond the built-in rules provided by `validator/v10`. This package provides an interface called [`CustomValidator`](custom_validator.go), which allows you to define custom validation rules, tags, and error message translations.
 
 To create a custom validator, you must implement the [`CustomValidator`](custom_validator.go) interface, which consists of three methods:
-```golang
+```go
 type CustomValidator interface {
 	// Tag returns the tag identifier used in struct field validation tags (e.g., `validate:"mytag"`).
 	Tag() string
@@ -72,7 +72,7 @@ Each method in the [`CustomValidator`](custom_validator.go) interface has a spec
 
 ### Example: Creating a Custom Validator
 The following example demonstrates how to create a custom validator that always fails and provides a custom error message:
-```golang
+```go
 package main
 
 import (
@@ -116,7 +116,7 @@ func (*MyValidator) Translation() (string, validatorV10.TranslationFunc) {
 ### Using Custom Validators
 To register a custom validator, you need to pass an instance of the custom validator to the `NewValidator` function using the `WithCustomValidator` option. 
 The following example demonstrates how to use the custom validator created in the previous section:
-```golang
+```go
 type Data struct {
     Field1 string `validate:"mytag"`
     Field2 string `validate:"required"`
@@ -157,13 +157,13 @@ To make validation errors more readable, especially in APIs that use JSON serial
 - **JSON Tag Name Function**: The package includes a predefined `JSONTagNameFunc` to automatically use JSON field names in validation error messages.
 ### Registering JSONTagNameFunc
 To register `JSONTagNameFunc` when creating a Validator instance, use the `WithTagNameFunc` option:
-```golang
+```go
 v, err := validator.NewValidator(
 	validator.WithTagNameFunc(validator.JSONTagNameFunc),
 )
 ```
 With this setup, any validation error messages will use the names specified in the json tags. For example:
-```golang
+```go
 type User struct {
 	FullName string `json:"full_name" validate:"required"`
 	Email    string `json:"email" validate:"required,email"`

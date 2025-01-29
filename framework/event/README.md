@@ -45,7 +45,7 @@ example
 
 ### Defining Your Payload
 Using Go's generics, you can define your own payload type to represent the data for each event:
-```golang
+```go
 // event_payload.go
 package your_package
 
@@ -57,7 +57,7 @@ type UserCreatedPayload struct {
 
 ### Creating an Event Handler
 The event framework uses a generic `EventHandler` interface to process events.
-```golang
+```go
 type EventHandler[T any] interface {
 	BeforeHandle(ctx context.Context, msg EventMessage[T]) error
 	AfterHandle(ctx context.Context, msg EventMessage[T], eventResult error) error
@@ -68,7 +68,7 @@ type EventHandler[T any] interface {
 
 ### Implementing Business Logic
 Define your business logic function that processes the event payload.
-```golang
+```go
 // handlers.go
 package your_package
 
@@ -90,7 +90,7 @@ func MyBusinessLogic(ctx *gin.Context, msg event.EventMessage[UserCreatedPayload
 
 ### Integrating with HTTP Frameworks (e.g., Gin)
 If you are using a web framework like Gin, you can integrate the event framework with the `NewGinEventHandler`, which creates a `gin.HandlerFunc`. This handler can then be injected into your Gin routes. The handler requires an `EventHandler` instance to process the event.
-```golang
+```go
 // main.go
 
 import (

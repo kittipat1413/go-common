@@ -11,7 +11,7 @@ The Cache Package provides a unified caching interface (`Cache[T]`) with support
 ## Usage
 ### Cache Interface
 The core of the cache package is the `Cache[T]` interface, which defines the methods that all cache implementations must provide:
-```golang
+```go
 type Initializer[T any] func() (T, *time.Duration, error)
 
 type Cache[T any] interface {
@@ -30,7 +30,7 @@ type Cache[T any] interface {
 The `localcache` package provides an in-memory cache implementation of the `Cache[T]` interface. It stores items in memory with optional expiration times and supports automatic cleanup of expired items.
 
 ### Creating a Cache Instance
-```golang
+```go
 import (
     "github.com/kittipat1413/go-common/framework/cache/localcache"
 )
@@ -41,7 +41,7 @@ c := localcache.New[string]()
 
 ### Customizing Cache Options
 You can customize the cache by providing options:
-```golang
+```go
 import (
     "github.com/kittipat1413/go-common/framework/cache/localcache"
 )
@@ -55,7 +55,7 @@ c := localcache.New[string](
 - `WithCleanupInterval`: Sets the interval for automatically cleaning up expired items.
 
 ### Using the Cache
-```golang
+```go
 ctx := context.Background()
 key := "greeting"
 
@@ -89,7 +89,7 @@ When adding an item to the cache, you can control its expiration behavior using 
 - `Custom Duration`: You can pass a specific duration for the item to expire.
 - `No Expiration`: Use `NoExpireDuration` to make the item persist indefinitely.
 - `Default Expiration`: If you pass `nil` for the duration, the cache will use the default expiration set during cache initialization.
-```golang
+```go
 import "github.com/kittipat1413/go-common/framework/cache/localcache"
 
 ctx := context.Background()
@@ -118,7 +118,7 @@ The cache package is designed to be extensible. You can implement additional cac
 To implement a new cache type:
 - Create a New Package: For example, `redis_cache`.
 - Implement the `Cache[T]` Interface:
-```golang
+```go
 package rediscache
 
 import (

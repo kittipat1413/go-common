@@ -21,7 +21,7 @@ The logger package provides a structured, context-aware logging solution for Go 
 
 ### Creating a Logger
 You can create a logger using the `NewLogger` function, providing a `Config` struct to customize its behavior:
-```golang
+```go
 import (
     "github.com/kittipat1413/go-common/framework/logger"
     "time"
@@ -44,7 +44,7 @@ if err != nil {
 ```
 
 Alternatively, you can use the default logger:
-```golang
+```go
 log := logger.NewDefaultLogger()
 ```
 - The `NewDefaultLogger` returns a logger instance with the default or user-defined configuration.
@@ -52,7 +52,7 @@ log := logger.NewDefaultLogger()
 
 ### Updating the Default Logger Configuration
 You can update the default logger configuration using SetDefaultLoggerConfig:
-```golang
+```go
 err := logger.SetDefaultLoggerConfig(logConfig)
 if err != nil {
     // Handle error
@@ -62,7 +62,7 @@ if err != nil {
 
 ## Configuration
 The Config struct allows you to customize the logger:
-```golang
+```go
 type Config struct {
 	// Level determines the minimum log level that will be processed by the logger.
 	// Logs with a level lower than this will be ignored.
@@ -84,7 +84,7 @@ type Config struct {
 
 ## Logging Messages
 The logger provides methods for different log levels:
-```golang
+```go
 type Logger interface {
     WithFields(fields Fields) Logger
 	Debug(ctx context.Context, msg string, fields Fields)
@@ -95,7 +95,7 @@ type Logger interface {
 }
 ```
 Example:
-```golang
+```go
 ctx := context.Background()
 fields := logger.Fields{"user_id": 12345}
 
@@ -103,13 +103,13 @@ log.Info(ctx, "User logged in", fields)
 ```
 ### Including Errors
 For error and fatal logs, you can include an error object:
-```golang
+```go
 err := errors.New("something went wrong")
 log.Error(ctx, "Failed to process request", err, fields)
 ```
 ### Adding Persistent Fields
 You can add persistent fields to the logger using WithFields, which returns a new logger instance:
-```golang
+```go
 logWithFields := log.WithFields(logger.Fields{
     "component": "authentication",
 })
@@ -135,7 +135,7 @@ The `StructuredJSONFormatter` is a custom `logrus.Formatter` designed to include
 
 ### Configuration
 You can customize the `StructuredJSONFormatter` when initializing the logger:
-```golang
+```go
 import (
     "github.com/kittipat1413/go-common/framework/logger"
     "time"
@@ -219,7 +219,7 @@ The `StructuredJSONFormatter` can extract tracing information (`trace_id` and `s
 
 ## Custom Formatter
 If you need a different format or additional customization, you can implement your own formatter by satisfying the `logrus.Formatter` interface and providing it to the logger configuration.
-```golang
+```go
 type MyCustomFormatter struct {
     // Custom fields...
 }
@@ -229,7 +229,7 @@ func (f *MyCustomFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 }
 ```
 Usage:
-```golang
+```go
 logConfig := logger.Config{
     Formatter: &MyCustomFormatter{},
 }
@@ -237,7 +237,7 @@ logConfig := logger.Config{
 
 ## No-Op Logger
 For testing purposes, you can use the no-operation logger, which implements the `Logger` interface but discards all log messages:
-```golang
+```go
 log := logger.NewNoopLogger()
 ```
 This can be useful to avoid cluttering test output with logs or when you need a logger that does nothing.

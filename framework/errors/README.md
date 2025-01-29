@@ -17,7 +17,7 @@ The errors package provides a centralized error handling library for Go applicat
 
 ### Setting the Service Prefix
 Before using the error handling library, set the service-specific prefix. This helps in identifying which service an error originated from.
-```golang
+```go
 import "github.com/kittipat1413/go-common/framework/errors"
 
 func init() {
@@ -27,7 +27,7 @@ func init() {
 
 ### Defining Custom Errors
 Define custom errors by embedding `*errors.BaseError` in your error type. This ensures that custom errors conform to the `DomainError` interface and can be properly handled by the error utilities.
-```golang
+```go
 package myerrors
 
 import (
@@ -69,7 +69,7 @@ returning only the custom error. You can handle internal errors by:
 - **Panicking** 
 
     If `errors.NewBaseError` returns an `error`, it likely indicates a misconfiguration or coding error (e.g., invalid error code). In such cases, it's acceptable to panic during development to catch the issue early.
-    ```golang
+    ```go
     func NewUserNotFoundError(userID string) *UserNotFoundError {
         baseErr, err := errors.NewBaseError(
             StatusCodeUserNotFound,
@@ -85,7 +85,7 @@ returning only the custom error. You can handle internal errors by:
 - **Returning an Error Interface**
 
     If you want the option to handle the error in the calling function, you can modify your constructor to return an `error` interface.
-    ```golang
+    ```go
     func NewUserNotFoundError(userID string) error {
         baseErr, err := errors.NewBaseError(
             StatusCodeUserNotFound,
@@ -101,7 +101,7 @@ returning only the custom error. You can handle internal errors by:
 - **Using `init()` to Initialize Predefined Errors**
 
     You can simplify handling predefined errors by initializing them at the package level. This approach removes the need to handle errors every time you use these predefined errors. If `NewBaseError` fails during initialization (e.g., due to a misconfiguration), `log.Fatal` will immediately halt the program and output the error. This way, issues are caught early at startup rather than during runtime.
-    ```golang
+    ```go
     package myerrors
 
     import (
@@ -175,7 +175,7 @@ returning only the custom error. You can handle internal errors by:
 ### Using the Error Handling Utilities
 
 **Adding Context with a Prefix**: Use `errors.WrapErrorWithPrefix` to add context to an error with a specified prefix. This helps in tracking where the error occurred. If the error is nil, it does nothing.
-```golang
+```go
 func someFunction() (err error) {
     defer errors.WrapErrorWithPrefix("[someFunction]", &err)
     // Function logic...
@@ -183,7 +183,7 @@ func someFunction() (err error) {
 }
 ```
 **Wrapping Errors**: Use `errors.WrapError` to combine multiple errors into one. If either error is nil, it returns the non-nil error. If both are non-nil, it wraps the new error around the original error.
-```golang
+```go
 user, err := getUser()
 if err != nil {
     // Creating a domain-specific error
@@ -194,7 +194,7 @@ if err != nil {
 }
 ```
 **Unwrapping Domain Errors**: Use `errors.UnwrapDomainError` to extract the `DomainError` from an error chain, allowing for specialized handling of domain-specific errors.
-```golang
+```go
 func handleError(err error) {
     if domainErr := errors.UnwrapDomainError(err); domainErr != nil {
         // Handle domain error
