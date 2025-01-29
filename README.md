@@ -27,7 +27,7 @@ go get github.com/kittipat1413/go-common
 
 ## Getting Started
 1. Import the Framework
-```Go
+```go
 import (
     "github.com/kittipat1413/go-common/framework/logger"
     "github.com/kittipat1413/go-common/framework/trace"
@@ -36,7 +36,7 @@ import (
 ```
 2. Initialize Components
 Set up the components you need, such as the logger and tracer, in your application's entry point.
-```Go
+```go
 func main() {
     // Initialize the logger
     logger := logger.NewDefaultLogger()
