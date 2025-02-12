@@ -110,6 +110,32 @@ func TestRequestID_WithCustomGenerator(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	requestID := w.Body.String()
 	assert.Equal(t, "custom-generated-id", requestID)
+	assert.Equal(t, requestID, w.Header().Get(middleware.DefaultRequestIDHeader))
+}
+
+func TestRequestID_WithCustomContextGenerator(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	customContextGenerator := func(c *gin.Context) string {
+		return "ctx-gen-" + c.FullPath()
+	}
+	router.Use(middleware.RequestID(
+		middleware.WithRequestIDContextGenerator(customContextGenerator),
+	))
+
+	router.GET("/test", func(c *gin.Context) {
+		requestID, _ := middleware.GetRequestIDFromContext(c.Request.Context())
+		c.String(http.StatusOK, requestID)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	requestID := w.Body.String()
+	assert.Equal(t, "ctx-gen-/test", requestID)
+	assert.Equal(t, requestID, w.Header().Get(middleware.DefaultRequestIDHeader))
 }
 
 func TestRequestID_LimitExistingIDLength(t *testing.T) {

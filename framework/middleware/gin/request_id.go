@@ -24,12 +24,26 @@ const DefaultRequestIDHeader = "X-Request-ID"
 
 // requestIDOptions holds configuration options for the RequestID middleware.
 type requestIDOptions struct {
-	headerName string             // The header name to use for the request ID.
-	generator  RequestIDGenerator // The function used to generate a new request ID.
+	headerName       string                    // The header name to use for the request ID.
+	generatorMode    requestIDGeneratorMode    // The mode to use for the request ID generator.
+	generator        RequestIDGenerator        // The function used to generate a new request ID.
+	contextGenerator RequestIDContextGenerator // The function used to generate a new request ID based on the Gin context.
 }
+
+// requestIDGeneratorMode is an internal enum to track which generator we use.
+type requestIDGeneratorMode int
+
+const (
+	generatorModeNone requestIDGeneratorMode = iota
+	generatorModeNoContext
+	generatorModeWithContext
+)
 
 // RequestIDGenerator is a function type that generates a unique ID.
 type RequestIDGenerator func() string
+
+// RequestIDContextGenerator is a function type that generates a unique ID based on the Gin context.
+type RequestIDContextGenerator func(c *gin.Context) string
 
 // RequestIDOption is a function that configures the requestIDOptions.
 type RequestIDOption func(*requestIDOptions)
@@ -44,10 +58,21 @@ func WithRequestIDHeader(headerName string) RequestIDOption {
 }
 
 // WithRequestIDGenerator allows setting a custom ID generator function.
-func WithRequestIDGenerator(generator RequestIDGenerator) RequestIDOption {
+func WithRequestIDGenerator(gen RequestIDGenerator) RequestIDOption {
 	return func(opts *requestIDOptions) {
-		if generator != nil {
-			opts.generator = generator
+		if gen != nil {
+			opts.generator = gen
+			opts.generatorMode = generatorModeNoContext
+		}
+	}
+}
+
+// WithRequestIDContextGenerator allows setting a custom ID generator function that uses the Gin context.
+func WithRequestIDContextGenerator(gen RequestIDContextGenerator) RequestIDOption {
+	return func(opts *requestIDOptions) {
+		if gen != nil {
+			opts.contextGenerator = gen
+			opts.generatorMode = generatorModeWithContext
 		}
 	}
 }
@@ -62,8 +87,8 @@ func WithRequestIDGenerator(generator RequestIDGenerator) RequestIDOption {
 //
 // Key Features:
 //   - Custom Header Name: Use `WithRequestIDHeader` to specify a custom header name for the request ID.
-//   - Custom ID Generator: Use `WithRequestIDGenerator` to provide a custom generator function for creating unique IDs.
-//   - Default Generator: By default, the middleware uses the `xid` package to generate compact and globally unique IDs.
+//   - Custom ID Generator: Use `WithRequestIDGenerator` or `WithRequestIDContextGenerator` to provide a custom generator function for creating request IDs.
+//   - Default Generator: By default, the middleware uses the `xid` package to generate compact and globally unique request IDs.
 //   - Request Context Integration: The request ID is injected into the context, enabling downstream handlers to retrieve it using `GetRequestIDFromContext`.
 //
 // Example Usage:
@@ -79,8 +104,9 @@ func WithRequestIDGenerator(generator RequestIDGenerator) RequestIDOption {
 func RequestID(opts ...RequestIDOption) gin.HandlerFunc {
 	// Set default options.
 	options := &requestIDOptions{
-		headerName: DefaultRequestIDHeader,    // Use X-Request-ID as the default header name.
-		generator:  defaultRequestIDGenerator, // Use xid as the default request ID generator.
+		headerName:    DefaultRequestIDHeader,    // Use X-Request-ID as the default header name.
+		generatorMode: generatorModeNoContext,    // Use the default generator mode.
+		generator:     defaultRequestIDGenerator, // Use xid as the default request ID generator.
 	}
 
 	// Apply any user-provided options.
@@ -97,11 +123,22 @@ func RequestID(opts ...RequestIDOption) gin.HandlerFunc {
 			requestID = ""
 		}
 
-		// Ensure the request ID is always set.
+		// If no valid incoming request ID, generate one.
 		if requestID == "" {
-			if options.generator != nil {
-				requestID = options.generator()
-			} else {
+			switch options.generatorMode {
+			case generatorModeWithContext:
+				if options.contextGenerator != nil {
+					requestID = options.contextGenerator(c)
+					break
+				}
+				fallthrough // Fallback to default if somehow contextGenerator is nil
+			case generatorModeNoContext:
+				if options.generator != nil {
+					requestID = options.generator()
+					break
+				}
+				fallthrough // Fallback if generator is also somehow nil
+			default:
 				requestID = defaultRequestIDGenerator()
 			}
 		}
