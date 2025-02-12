@@ -1,0 +1,33 @@
+linters-settings:
+  gocyclo:
+    min-complexity: 15  # Warn if a function has a complexity score of 15 or higher.
+  errcheck:
+    check-type-assertions: false  # Ignore type assertion errors.
+    check-blank: false  # Ignore blank identifier errors.
+  misspell:
+    locale: US  # Use US English for spell checking.
+  revive:
+    severity: warning  # Set `revive` linter warnings instead of errors.
+  gofmt:
+    simplify: true  # Apply simplifications, such as removing redundant conversions.
+
+linters:
+  enable:
+    - govet  # Detects suspicious constructs (e.g., printf format issues, unused variables).
+    - staticcheck  # Performs advanced static analysis for potential bugs and inefficiencies.
+    - ineffassign  # Detects redundant assignments that have no effect.
+    - gosimple  # Suggests simpler alternatives to complex Go constructs.
+    - revive  # Provides style and best practice suggestions.
+    - gosec  # Checks for common security issues in Go code.
+    - misspell  # Finds and corrects spelling mistakes in comments and strings.
+    - gofmt  # Ensures code follows Go formatting standards.
+
+issues:
+  exclude-rules:
+    - path: _test\.go$
+      linters:
+        - gosec 
+    - path: "example/.*"
+      linters:
+        - gosec
+

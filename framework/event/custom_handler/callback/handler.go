@@ -188,7 +188,7 @@ func (eh *callbackEventHandler[T]) sendCallback(ctx context.Context, url string)
 		if attempt < eh.callbackConfig.maxRetries {
 			// Exponential backoff
 			sleepDuration := eh.callbackConfig.retryInterval * (1 << attempt)
-			jitter := time.Duration(float64(sleepDuration) * 0.1 * (0.5 - rand.Float64()))
+			jitter := time.Duration(float64(sleepDuration) * 0.1 * (0.5 - rand.Float64())) // #nosec G404
 			sleepDuration += jitter
 
 			select {
