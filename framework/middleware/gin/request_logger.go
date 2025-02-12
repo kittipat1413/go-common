@@ -23,7 +23,9 @@ type RequestLoggerFilter func(*http.Request) bool
 // WithRequestLogger allows setting a custom logger for the request logger middleware.
 func WithRequestLogger(logger common_logger.Logger) RequestLoggerOption {
 	return func(opts *requestLoggerOptions) {
-		opts.logger = logger
+		if logger != nil {
+			opts.logger = logger
+		}
 	}
 }
 
