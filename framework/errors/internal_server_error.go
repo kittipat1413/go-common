@@ -1,7 +1,5 @@
 package errors
 
-import "fmt"
-
 type InternalServerError struct {
 	*BaseError
 }
@@ -15,7 +13,7 @@ func NewInternalServerError(message string, data interface{}) error {
 		data,
 	)
 	if err != nil {
-		return fmt.Errorf("BaseError creation failed: %w", err)
+		return err
 	}
 	return &InternalServerError{
 		BaseError: baseErr,
@@ -35,7 +33,7 @@ func NewDatabaseError(message string, data interface{}) error {
 		data,
 	)
 	if err != nil {
-		return fmt.Errorf("BaseError creation failed: %w", err)
+		return err
 	}
 	return &DatabaseError{
 		BaseError: baseErr,
@@ -55,7 +53,7 @@ func NewThirdPartyError(message string, data interface{}) error {
 		data,
 	)
 	if err != nil {
-		return fmt.Errorf("BaseError creation failed: %w", err)
+		return err
 	}
 	return &ThirdPartyError{
 		BaseError: baseErr,

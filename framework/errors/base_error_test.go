@@ -18,6 +18,7 @@ func TestNewBaseError(t *testing.T) {
 		message          string
 		data             interface{}
 		expectedError    bool
+		expectedErrType  error
 		expectedHttpCode int
 		expectedMsg      string
 	}{
@@ -49,20 +50,20 @@ func TestNewBaseError(t *testing.T) {
 			expectedMsg:      "An unexpected error occurred. Please try again later.",
 		},
 		{
-			name:             "invalid code length",
-			code:             "123",
-			message:          "short code error",
-			data:             nil,
-			expectedError:    true,
-			expectedHttpCode: http.StatusBadRequest,
-			expectedMsg:      "",
+			name:            "invalid code length",
+			code:            "123",
+			message:         "short code error",
+			data:            nil,
+			expectedError:   true,
+			expectedErrType: domain_error.ErrBaseErrorCreationFailed,
 		},
 		{
-			name:          "invalid category",
-			code:          "799001",
-			message:       "unknown category error",
-			data:          nil,
-			expectedError: true,
+			name:            "invalid category",
+			code:            "799001",
+			message:         "unknown category error",
+			data:            nil,
+			expectedError:   true,
+			expectedErrType: domain_error.ErrBaseErrorCreationFailed,
 		},
 	}
 
@@ -75,6 +76,7 @@ func TestNewBaseError(t *testing.T) {
 			if tt.expectedError {
 				require.Error(t, err, "expected an error but got none")
 				assert.Nil(t, baseErr, "expected nil BaseError on error")
+				assert.ErrorIs(t, err, tt.expectedErrType, "error should be of type ErrBaseErrorCreationFailed")
 			} else {
 				require.NoError(t, err, "expected no error but got one")
 				require.NotNil(t, baseErr, "expected a valid BaseError")

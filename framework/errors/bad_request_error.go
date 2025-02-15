@@ -1,7 +1,5 @@
 package errors
 
-import "fmt"
-
 type ClientError struct {
 	*BaseError
 }
@@ -15,7 +13,7 @@ func NewClientError(message string, data interface{}) error {
 		data,
 	)
 	if err != nil {
-		return fmt.Errorf("BaseError creation failed: %w", err)
+		return err
 	}
 	return &ClientError{
 		BaseError: baseErr,
@@ -35,7 +33,7 @@ func NewBadRequestError(message string, data interface{}) error {
 		data,
 	)
 	if err != nil {
-		return fmt.Errorf("BaseError creation failed: %w", err)
+		return err
 	}
 	return &BadRequestError{
 		BaseError: baseErr,
@@ -55,7 +53,7 @@ func NewNotFoundError(message string, data interface{}) error {
 		data,
 	)
 	if err != nil {
-		return fmt.Errorf("BaseError creation failed: %w", err)
+		return err
 	}
 	return &NotFoundError{
 		BaseError: baseErr,
@@ -75,7 +73,7 @@ func NewConflictError(message string, data interface{}) error {
 		data,
 	)
 	if err != nil {
-		return fmt.Errorf("BaseError creation failed: %w", err)
+		return err
 	}
 	return &ConflictError{
 		BaseError: baseErr,
@@ -95,7 +93,7 @@ func NewUnprocessableEntityError(message string, data interface{}) error {
 		data,
 	)
 	if err != nil {
-		return fmt.Errorf("BaseError creation failed: %w", err)
+		return err
 	}
 	return &UnprocessableEntityError{
 		BaseError: baseErr,

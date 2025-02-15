@@ -1,9 +1,12 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 )
+
+var ErrBaseErrorCreationFailed = errors.New("BaseError creation failed")
 
 // BaseError provides a default implementation of the DomainError interface. It can be embedded in other error types to avoid code duplication.
 type BaseError struct {
@@ -48,7 +51,7 @@ func NewBaseError(code, message string, data interface{}) (*BaseError, error) {
 	// Validate the error code length
 	const codeLength = 6
 	if len(code) != codeLength {
-		return nil, fmt.Errorf("error creation failed: error code '%s' must be exactly %d characters", code, codeLength)
+		return nil, fmt.Errorf("%w: error code '%s' must be exactly %d characters", ErrBaseErrorCreationFailed, code, codeLength)
 	}
 
 	// Extract the category 'xyy' from the error code
@@ -56,7 +59,7 @@ func NewBaseError(code, message string, data interface{}) (*BaseError, error) {
 
 	// Validate the extracted category
 	if !IsValidCategory(xyy) {
-		return nil, fmt.Errorf("error creation failed: invalid category '%s' in code '%s'", xyy, code)
+		return nil, fmt.Errorf("%w: invalid category '%s' in code '%s'", ErrBaseErrorCreationFailed, xyy, code)
 	}
 
 	// Determine the HTTP status code for the category

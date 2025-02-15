@@ -82,9 +82,10 @@ returning only the custom error. You can handle internal errors by:
         return &UserNotFoundError{BaseError: baseErr}
     }
     ```
-- **Returning an Error Interface**
+- **Returning an Error Interface ✅**
 
     If you want the option to handle the error in the calling function, you can modify your constructor to return an `error` interface.
+    This allows proper handling of `ErrBaseErrorCreationFailed`, which is returned when NewBaseError fails due to invalid error codes or categories.
     ```go
     func NewUserNotFoundError(userID string) error {
         baseErr, err := errors.NewBaseError(
@@ -93,7 +94,7 @@ returning only the custom error. You can handle internal errors by:
             map[string]string{"user_id": userID},
         )
         if err != nil {
-            return fmt.Errorf("Failed to create BaseError: %w", err)
+            return err
         }
         return &UserNotFoundError{BaseError: baseErr}
     }
@@ -171,6 +172,47 @@ returning only the custom error. You can handle internal errors by:
     }
     ```
     > After defining these errors, you can use them directly in your code by referencing `myerrors.ErrBadRequest` or `myerrors.ErrNotFound`. Since they are pre-initialized at the package level, they are always available without needing additional error handling for creation.
+
+### Why Wrap `BaseError` in a Custom Type?
+In Go, it’s common to wrap a base error type inside a more specific domain error type (like `UserNotFoundError`). Here’s why this approach is beneficial:
+- **Stronger Type Assertions**
+    - When handling errors, using a custom error type allows for better type checking with `errors.As()`.
+  ```go
+    err := NewUserNotFoundError("12345")
+
+    var userErr *UserNotFoundError
+    if errors.As(err, &userErr) {
+        fmt.Println("Handling UserNotFoundError:", userErr.GetMessage())
+    }
+  ```
+- **Better Encapsulation of Business Logic**
+    - A custom error type keeps domain logic inside the error itself, making it easier to manage.
+    ```go
+    type UserNotFoundError struct {
+        *errors.BaseError
+    }
+
+    // Example: Define custom logic for this error
+    func (e *UserNotFoundError) IsCritical() bool {
+        return false // A missing user is not considered a critical failure
+    }
+    ```
+    ```go
+    // Now, error handling can adapt based on business logic:
+    var userErr *UserNotFoundError
+    if errors.As(err, &userErr) && userErr.IsCritical() {
+        // Handle it differently if it's a critical issue
+    }
+    ```
+- **Improves Readability & Maintains Domain Clarity**
+    - Without a Custom Error Type:
+    ```go
+    return errors.NewBaseError(StatusCodeUserNotFound, "User not found", nil)
+    ```
+    - With a Custom Error Type: 
+    ```go
+    return NewUserNotFoundError(userID)
+    ```
 
 ### Using the Error Handling Utilities
 

@@ -1,7 +1,5 @@
 package errors
 
-import "fmt"
-
 type AuthenticationError struct {
 	*BaseError
 }
@@ -15,7 +13,7 @@ func NewAuthenticationError(message string, data interface{}) error {
 		data,
 	)
 	if err != nil {
-		return fmt.Errorf("BaseError creation failed: %w", err)
+		return err
 	}
 	return &AuthenticationError{
 		BaseError: baseErr,
@@ -35,7 +33,7 @@ func NewUnauthorizedError(message string, data interface{}) error {
 		data,
 	)
 	if err != nil {
-		return fmt.Errorf("BaseError creation failed: %w", err)
+		return err
 	}
 	return &UnauthorizedError{
 		BaseError: baseErr,
@@ -55,7 +53,7 @@ func NewForbiddenError(message string, data interface{}) error {
 		data,
 	)
 	if err != nil {
-		return fmt.Errorf("BaseError creation failed: %w", err)
+		return err
 	}
 	return &ForbiddenError{
 		BaseError: baseErr,

@@ -114,7 +114,7 @@ func NewMissingUserPasswordError() error {
 		nil,
 	)
 	if err != nil {
-		return fmt.Errorf("BaseError creation failed: %w", err)
+		return err
 	}
 	return &MissingUserPasswordError{
 		BaseError: baseErr,
