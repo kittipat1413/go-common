@@ -4,7 +4,7 @@
 [![Test](https://github.com/kittipat1413/go-common/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/kittipat1413/go-common/actions/workflows/test.yaml)
 [![Lint](https://github.com/kittipat1413/go-common/actions/workflows/lint.yaml/badge.svg?branch=main)](https://github.com/kittipat1413/go-common/actions/workflows/lint.yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kittipat1413/go-common)](https://goreportcard.com/report/github.com/kittipat1413/go-common)
-[![Total Views](https://img.shields.io/endpoint?url=https%3A%2F%2Fhits.dwyl.com%2Fkittipat1413%2Fgo-common.json%3Fcolor%3Dblue)](https://hits.dwyl.com/kittipat1413/go-common)
+[![Total Views](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fkittipat1413%2Fgo-common&count_bg=%2379C83D&title_bg=%23555555&icon=go.svg&icon_color=%23E7E7E7&title=Total+Views&edge_flat=false)](https://hits.seeyoufarm.com)
 [![Release](https://img.shields.io/github/release/kittipat1413/go-common.svg?style=flat)](https://github.com/kittipat1413/go-common/releases/latest)
 ---
 Welcome to the **Common Backend Framework** repository! This project provides a collection of utilities, libraries, and frameworks designed to standardize and streamline the development of backend API services within our organization.
@@ -83,7 +83,7 @@ Standardizes error handling and response formatting.
   - HTTP status code mapping.
   - Error response generation.
 
-### [Event Package](/framework//event/)
+### [Event Package](/framework/event/)
 Handles event-driven workflows, including message parsing and callback mechanisms.
 - Features:
   - Integration with HTTP frameworks (like Gin).
@@ -97,3 +97,6 @@ A collection of helper functions and common utilities.
   - String manipulation.
   - Configuration loading (e.g., from environment variables, config files).
   - etc.
+
+## License
+This project is licensed under the [MIT License](LICENSE).
