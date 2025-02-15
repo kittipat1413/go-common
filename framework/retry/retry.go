@@ -50,7 +50,26 @@ type RetryFunc func(ctx context.Context) error
 // RetryOnFunc is the function signature for retryable error checks.
 type RetryOnFunc func(attempt int, err error) bool
 
-// ExecuteWithRetry runs the given function with retry logic.
+// ExecuteWithRetry attempts to execute the given function `fn` with retry logic.
+// It retries up to `MaxAttempts` using the configured backoff strategy, and stops
+// retrying based on the `retryOn` function or if the context is canceled.
+//
+// If the function succeeds (returns `nil`), the retry loop exits immediately.
+// If the function fails (returns an error), it will retry based on `retryOn`.
+//
+// Parameters:
+//   - ctx: A context that allows for request cancellation. If `ctx` is canceled,
+//     the function stops retrying and returns `ctx.Err()`.
+//   - fn: The function to be executed with retry logic. It must accept a `context.Context`
+//     and return an `error`. Returning `nil` indicates success.
+//   - retryOn: A function that determines if a retry should occur based on the current
+//     attempt number and the returned error. It should return `true` to retry and `false`
+//     to stop retrying.
+//
+// Returns:
+//   - `nil` if the function `fn` succeeds within the allowed retries.
+//   - The last encountered `error` if all retry attempts fail.
+//   - `ctx.Err()` if the context is canceled before completion.
 func (r *Retrier) ExecuteWithRetry(ctx context.Context, fn RetryFunc, retryOn RetryOnFunc) error {
 	var err error
 	for attempt := 0; attempt < r.config.MaxAttempts; attempt++ {
