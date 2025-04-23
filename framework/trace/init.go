@@ -19,6 +19,13 @@ func DefaultTracer() trace.Tracer {
 	return otel.Tracer("github.com/kittipat1413/go-common/framework/trace")
 }
 
+func GetTracer(name string) trace.Tracer {
+	if name == "" {
+		return DefaultTracer()
+	}
+	return otel.Tracer(name)
+}
+
 type ExporterType string
 
 const (
@@ -51,6 +58,9 @@ func InitTracerProvider(ctx context.Context, serviceName string, endpoint *strin
 	)
 	switch exporterType {
 	case ExporterGRPC:
+		if endpoint == nil {
+			return nil, fmt.Errorf("endpoint must be provided for gRPC exporter")
+		}
 		exporter, err = otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(*endpoint))
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize gRPC trace exporter: %w", err)
