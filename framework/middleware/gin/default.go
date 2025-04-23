@@ -35,11 +35,11 @@ type DefaultMiddlewareConfig struct {
 //	router.Use(ConfigureDefaultMiddlewares(cfg)...)
 func ConfigureDefaultMiddlewares(config DefaultMiddlewareConfig) []gin.HandlerFunc {
 	middlewares := []gin.HandlerFunc{
-		Recovery(),
 		CircuitBreaker(),
 		Trace(WithTracerProvider(config.TracerProvider)),
 		RequestID(),
 		RequestLogger(WithRequestLogger(config.Logger)),
+		Recovery(),
 	}
 	return middlewares
 }
