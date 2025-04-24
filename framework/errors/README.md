@@ -265,6 +265,7 @@ Defined categories and their descriptions:
 - `500zzz`: Server Errors
     - `501zzz`: Database Errors
     - `502zzz`: 3rd Party Errors
+    - `503zzz`: Service Unavailable
 - `900zzz`: Security Errors
     - `901zzz`: Unauthorized
     - `902zzz`: Forbidden
