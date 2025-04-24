@@ -22,6 +22,7 @@ var validCategories = map[string]errorCategory{
 	StatusCodeGenericInternalServerError[:3]:      {CategoryCode: StatusCodeGenericInternalServerError[:3], Description: "Internal Error", HTTPStatus: 500},
 	StatusCodeGenericDatabaseError[:3]:            {CategoryCode: StatusCodeGenericDatabaseError[:3], Description: "Database Error", HTTPStatus: 500},
 	StatusCodeGenericThirdPartyError[:3]:          {CategoryCode: StatusCodeGenericThirdPartyError[:3], Description: "Third-party Error", HTTPStatus: 502},
+	StatusCodeGenericServiceUnavailableError[:3]:  {CategoryCode: StatusCodeGenericServiceUnavailableError[:3], Description: "Service Unavailable", HTTPStatus: 503},
 	StatusCodeGenericAuthError[:3]:                {CategoryCode: StatusCodeGenericAuthError[:3], Description: "Security Error", HTTPStatus: 401},
 	StatusCodeGenericUnauthorizedError[:3]:        {CategoryCode: StatusCodeGenericUnauthorizedError[:3], Description: "Unauthorized", HTTPStatus: 401},
 	StatusCodeGenericForbiddenError[:3]:           {CategoryCode: StatusCodeGenericForbiddenError[:3], Description: "Forbidden", HTTPStatus: 403},

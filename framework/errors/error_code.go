@@ -20,9 +20,10 @@ const (
 	StatusCodeGenericUnprocessableEntityError = "404000" // Unprocessable Entity (e.g., validation error)
 
 	// Server Errors (5yyzzz)
-	StatusCodeGenericInternalServerError = "500000" // General Internal Server Error
-	StatusCodeGenericDatabaseError       = "501000" // Database Error
-	StatusCodeGenericThirdPartyError     = "502000" // Third-party Error
+	StatusCodeGenericInternalServerError     = "500000" // General Internal Server Error
+	StatusCodeGenericDatabaseError           = "501000" // Database Error
+	StatusCodeGenericThirdPartyError         = "502000" // Third-party Error
+	StatusCodeGenericServiceUnavailableError = "503000" // Service Unavailable (e.g., maintenance mode)
 
 	// Authentication and Authorization Errors (9yyzzz)
 	StatusCodeGenericAuthError         = "900000" // General Authentication Error
@@ -45,13 +46,14 @@ var errorCodeToMessages = map[string]string{
 	// Client Errors
 	StatusCodeGenericClientError:              "An error occurred while processing the request.",
 	StatusCodeGenericBadRequestError:          "The request was invalid or cannot be served.",
-	StatusCodeGenericConflictError:            "The request could not be completed due to a conflict with the current state of the resource.",
 	StatusCodeGenericNotFoundError:            "The requested resource could not be found.",
+	StatusCodeGenericConflictError:            "The request could not be completed due to a conflict with the current state of the resource.",
 	StatusCodeGenericUnprocessableEntityError: "The request could not be processed due to semantic errors.",
 	// Internal Errors
-	StatusCodeGenericInternalServerError: "An internal server error occurred. Please try again later.",
-	StatusCodeGenericDatabaseError:       "A database error occurred while processing the request.",
-	StatusCodeGenericThirdPartyError:     "An error occurred while communicating with an external service.",
+	StatusCodeGenericInternalServerError:     "An internal server error occurred. Please try again later.",
+	StatusCodeGenericDatabaseError:           "A database error occurred while processing the request.",
+	StatusCodeGenericThirdPartyError:         "An error occurred while communicating with an external service.",
+	StatusCodeGenericServiceUnavailableError: "The service is currently unavailable. Please try again later.",
 	// Security Errors
 	StatusCodeGenericAuthError:         "Authentication failed. Please verify your credentials.",
 	StatusCodeGenericUnauthorizedError: "Access denied. You are not authorized to perform this action.",

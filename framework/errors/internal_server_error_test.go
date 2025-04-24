@@ -95,3 +95,32 @@ func TestNewThirdPartyError(t *testing.T) {
 		assert.Equal(t, domain_error.GetFullCode(domain_error.StatusCodeGenericThirdPartyError), thirdPartyErr.Code(), "Unexpected error code")
 	})
 }
+
+func TestNewServiceUnavailableError(t *testing.T) {
+	t.Run("should create ServiceUnavailableError successfully with custom message and data", func(t *testing.T) {
+		message := "Custom service unavailable error message"
+		data := map[string]string{"key": "value"}
+
+		err := domain_error.NewServiceUnavailableError(message, data)
+		require.NotNil(t, err, "Expected ServiceUnavailableError, got nil")
+
+		serviceUnavailableErr, ok := err.(*domain_error.ServiceUnavailableError)
+		require.True(t, ok, "Expected error to be of type ServiceUnavailableError")
+
+		assert.Equal(t, http.StatusServiceUnavailable, serviceUnavailableErr.GetHTTPCode(), "Unexpected HTTP code")
+		assert.Equal(t, domain_error.GetFullCode(domain_error.StatusCodeGenericServiceUnavailableError), serviceUnavailableErr.Code(), "Unexpected error code")
+		assert.Equal(t, message, serviceUnavailableErr.GetMessage(), "Unexpected error message")
+		assert.Equal(t, data, serviceUnavailableErr.GetData(), "Unexpected data")
+	})
+
+	t.Run("should create ServiceUnavailableError successfully with default message", func(t *testing.T) {
+		err := domain_error.NewServiceUnavailableError("", nil)
+		require.NotNil(t, err, "Expected ServiceUnavailableError, got nil")
+
+		serviceUnavailableErr, ok := err.(*domain_error.ServiceUnavailableError)
+		require.True(t, ok, "Expected error to be of type ServiceUnavailableError")
+
+		assert.Equal(t, http.StatusServiceUnavailable, serviceUnavailableErr.GetHTTPCode(), "Unexpected HTTP code")
+		assert.Equal(t, domain_error.GetFullCode(domain_error.StatusCodeGenericServiceUnavailableError), serviceUnavailableErr.Code(), "Unexpected error code")
+	})
+}

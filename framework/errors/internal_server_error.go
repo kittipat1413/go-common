@@ -60,4 +60,24 @@ func NewThirdPartyError(message string, data interface{}) error {
 	}
 }
 
+type ServiceUnavailableError struct {
+	*BaseError
+}
+
+// NewServiceUnavailableError creates a new ServiceUnavailableError instance using the generic service unavailable error code.
+// If the `message` parameter is an empty string (""), the default message for the error code will be used.
+func NewServiceUnavailableError(message string, data interface{}) error {
+	baseErr, err := NewBaseError(
+		StatusCodeGenericServiceUnavailableError,
+		message,
+		data,
+	)
+	if err != nil {
+		return err
+	}
+	return &ServiceUnavailableError{
+		BaseError: baseErr,
+	}
+}
+
 // Additional error types can be added here following the same pattern.
