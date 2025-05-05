@@ -89,7 +89,9 @@ func Recovery(opts ...RecoveryOption) gin.HandlerFunc {
 				}
 
 				// Call the custom handler to respond to the client.
-				options.handler(c, err)
+				if !c.Writer.Written() {
+					options.handler(c, err) // Write an error response only if no response has been written.
+				}
 			}
 		}()
 		c.Next()
