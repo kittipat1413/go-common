@@ -57,6 +57,11 @@ func main() {
 }
 ```
 
+## Example Project
+
+Looking for a real-world implementation?
+- Check out the [🎟️ Ticket Reservation System](https://github.com/kittipat1413/ticket-reservation), a clean-architecture-based backend service that demonstrates how to integrate and use the `go-common` framework across all layers — config, logging, tracing, error handling, HTTP handlers, use cases, and repositories.
+
 ## Modules and Packages
 ### [Logger](/framework/logger/)
 Provides a structured, context-aware logging interface using logrus. Designed for both development and production environments.
