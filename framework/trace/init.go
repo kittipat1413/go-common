@@ -40,7 +40,7 @@ It supports both stdout and gRPC exporters and sets global tracing and propagati
 Params:
   - ctx: Context for initialization, used for trace exporter creation and resource detection.
   - serviceName: The name of the service being traced. Can be overridden by the environment variable `OTEL_SERVICE_NAME`.
-  - endpoint: The gRPC endpoint for trace exporters (only applicable for the gRPC exporter).
+  - endpoint: The gRPC endpoint for trace exporters (only applicable for the gRPC exporter), the provided endpoint should be in the format "host:port" (e.g., "localhost:4317").
   - exporterType: The type of exporter to use (either "stdout" or "grpc").
 
 Returns:
