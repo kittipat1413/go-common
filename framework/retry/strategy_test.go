@@ -9,6 +9,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNewFixedBackoffStrategy(t *testing.T) {
+	t.Run("valid config", func(t *testing.T) {
+		strategy, err := retry.NewFixedBackoffStrategy(500 * time.Millisecond)
+		require.NoError(t, err)
+		require.NotNil(t, strategy)
+
+		assert.Equal(t, 500*time.Millisecond, strategy.Next(0))
+	})
+
+	t.Run("invalid config", func(t *testing.T) {
+		strategy, err := retry.NewFixedBackoffStrategy(0)
+		require.Error(t, err)
+		assert.Nil(t, strategy)
+	})
+}
+
 func TestFixedBackoff_Validate(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -40,6 +56,32 @@ func TestFixedBackoff_Next(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		assert.Equal(t, 100*time.Millisecond, b.Next(i), "FixedBackoff should return the same interval")
 	}
+}
+
+func TestNewJitterBackoffStrategy(t *testing.T) {
+	t.Run("valid config", func(t *testing.T) {
+		strategy, err := retry.NewJitterBackoffStrategy(100*time.Millisecond, 50*time.Millisecond)
+		require.NoError(t, err)
+		require.NotNil(t, strategy)
+
+		for i := 0; i < 10; i++ {
+			delay := strategy.Next(i)
+			assert.GreaterOrEqual(t, delay, 100*time.Millisecond)
+			assert.LessOrEqual(t, delay, 150*time.Millisecond)
+		}
+	})
+
+	t.Run("invalid baseDelay", func(t *testing.T) {
+		strategy, err := retry.NewJitterBackoffStrategy(0, 50*time.Millisecond)
+		require.Error(t, err)
+		assert.Nil(t, strategy)
+	})
+
+	t.Run("invalid maxJitter", func(t *testing.T) {
+		strategy, err := retry.NewJitterBackoffStrategy(100*time.Millisecond, -1*time.Millisecond)
+		require.Error(t, err)
+		assert.Nil(t, strategy)
+	})
 }
 
 func TestJitterBackoff_Validate(t *testing.T) {
@@ -76,6 +118,46 @@ func TestJitterBackoff_Next(t *testing.T) {
 		assert.GreaterOrEqual(t, delay, 100*time.Millisecond, "JitterBackoff should not be less than BaseDelay")
 		assert.LessOrEqual(t, delay, 150*time.Millisecond, "JitterBackoff should not exceed BaseDelay + MaxJitter")
 	}
+}
+
+func TestNewExponentialBackoffStrategy(t *testing.T) {
+	t.Run("valid config", func(t *testing.T) {
+		strategy, err := retry.NewExponentialBackoffStrategy(100*time.Millisecond, 2.0, 2*time.Second)
+		require.NoError(t, err)
+		require.NotNil(t, strategy)
+
+		expected := []time.Duration{
+			100 * time.Millisecond,
+			200 * time.Millisecond,
+			400 * time.Millisecond,
+			800 * time.Millisecond,
+			1600 * time.Millisecond,
+			2000 * time.Millisecond, // capped at MaxDelay
+		}
+
+		for i, want := range expected {
+			got := strategy.Next(i)
+			assert.Equal(t, want, got)
+		}
+	})
+
+	t.Run("invalid baseDelay", func(t *testing.T) {
+		strategy, err := retry.NewExponentialBackoffStrategy(0, 2.0, 2*time.Second)
+		require.Error(t, err)
+		assert.Nil(t, strategy)
+	})
+
+	t.Run("invalid factor", func(t *testing.T) {
+		strategy, err := retry.NewExponentialBackoffStrategy(100*time.Millisecond, 1.0, 2*time.Second)
+		require.Error(t, err)
+		assert.Nil(t, strategy)
+	})
+
+	t.Run("invalid maxDelay", func(t *testing.T) {
+		strategy, err := retry.NewExponentialBackoffStrategy(1*time.Second, 2.0, 500*time.Millisecond)
+		require.Error(t, err)
+		assert.Nil(t, strategy)
+	})
 }
 
 func TestExponentialBackoff_Validate(t *testing.T) {

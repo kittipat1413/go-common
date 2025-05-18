@@ -10,11 +10,13 @@ The Retry Package provides a robust and extensible interface for automatically r
 - **Configurable Retry Conditions** – Choose which errors should trigger retries
 
 ## Usage
-### Retrier Interface
+### 🧩 Interface
 ```go
-func (r *Retrier) ExecuteWithRetry(ctx context.Context, fn RetryFunc, retryOn RetryOnFunc) error
+type Retrier interface {
+    ExecuteWithRetry(ctx context.Context, fn RetryFunc, retryOn RetryOnFunc) error
+}
 ```
-**ExecuteWithRetry**: Executes a function with automatic retry logic.
+**`ExecuteWithRetry`**: Executes a function with automatic retry logic.
 - **Params**:
     - `ctx`: Context for request tracing and cancellation
     - `fn`: The function to retry (must return an error if it fails)
@@ -39,12 +41,16 @@ import (
 func main() {
 	ctx := context.Background()
 
+	// Define backoff strategy
+	backoff, err := retry.NewFixedBackoffStrategy(2 * time.Second)
+	if err != nil {
+		log.Fatalf("Failed to create backoff strategy: %v", err)
+	}
 	// Define retry configuration
 	config := retry.Config{
 		MaxAttempts: 3,
-		Backoff:     &retry.FixedBackoff{Interval: 2 * time.Second},
+		Backoff:     backoff,
 	}
-
 	// Create Retrier
 	retrier, err := retry.NewRetrier(config)
 	if err != nil {
@@ -73,20 +79,24 @@ You can find a complete working example in the repository under [framework/retry
 ## Backoff Strategies
 **1. Fixed Backoff**
 ```go
-backoff := &retry.FixedBackoff{Interval: 2 * time.Second}
+backoff, _ := retry.NewFixedBackoffStrategy(2 * time.Second)
 ```
 - Constant delay between retries 
 - Simple and predictable retry behavior
 
 **2. Jitter Backoff**
 ```go
-backoff := &retry.JitterBackoff{BaseDelay: 2 * time.Second, MaxJitter: 500 * time.Millisecond}
+backoff, _ := retry.NewJitterBackoffStrategy(2*time.Second, 500*time.Millisecond)
 ```
 - Adds randomness to prevent synchronized retries (thundering herd problem)
 
 **3. Exponential Backoff**
 ```go
-backoff := &retry.ExponentialBackoff{BaseDelay: 100 * time.Millisecond, Factor: 2.0, MaxDelay: 5 * time.Second}
+backoff, _ := retry.NewExponentialBackoffStrategy(
+	100*time.Millisecond, // base
+	2.0,                  // factor
+	5*time.Second,        // upper limit of delay
+)
 ```
 - Delays grow exponentially (`BaseDelay` * `Factor`^`attempt`)
 - Prevents excessive load on failing services

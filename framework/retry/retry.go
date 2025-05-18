@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+//go:generate mockgen -source=./retry.go -destination=./mocks/retry.go -package=retry_mocks
+
 // ErrInvalidConfig is returned when the Retrier is misconfigured.
 var ErrInvalidConfig = errors.New("invalid retry configuration")
 
@@ -31,17 +33,22 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// Retrier handles retry logic.
-type Retrier struct {
+// Retrier defines the interface for retrying operations.
+type Retrier interface {
+	ExecuteWithRetry(ctx context.Context, fn RetryFunc, retryOn RetryOnFunc) error
+}
+
+// retrier implements the Retrier interface.
+type retrier struct {
 	config Config
 }
 
 // NewRetrier creates a new Retrier with the given configuration.
-func NewRetrier(config Config) (*Retrier, error) {
+func NewRetrier(config Config) (Retrier, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err // Already wrapped with ErrInvalidConfig
 	}
-	return &Retrier{config: config}, nil
+	return &retrier{config: config}, nil
 }
 
 // RetryFunc is the function signature for retryable operations.
@@ -70,7 +77,7 @@ type RetryOnFunc func(attempt int, err error) bool
 //   - `nil` if the function `fn` succeeds within the allowed retries.
 //   - The last encountered `error` if all retry attempts fail.
 //   - `ctx.Err()` if the context is canceled before completion.
-func (r *Retrier) ExecuteWithRetry(ctx context.Context, fn RetryFunc, retryOn RetryOnFunc) error {
+func (r *retrier) ExecuteWithRetry(ctx context.Context, fn RetryFunc, retryOn RetryOnFunc) error {
 	var err error
 	for attempt := 0; attempt < r.config.MaxAttempts; attempt++ {
 		if err = fn(ctx); err == nil {
