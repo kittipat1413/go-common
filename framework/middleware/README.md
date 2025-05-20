@@ -22,6 +22,10 @@ The middleware package provides reusable middleware components for Go web applic
 - **CircuitBreaker Middleware**: Protects routes from excessive failures by introducing a circuit breaker mechanism.
 	- Monitors request failures and trips the circuit breaker based on configurable thresholds.
 	- Supports custom error handlers and route-specific filters.
+- **Prometheus Middleware**: Exposes HTTP metrics to Prometheus.
+    - Tracks request counts, durations, and sizes.
+    - Configurable namespace for metrics.
+    - Provides a `/metrics` endpoint for Prometheus scraping.
 
 ## Examples
 - You can find a complete working example in the repository under [framework/middleware/example](example/).

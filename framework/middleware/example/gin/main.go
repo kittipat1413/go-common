@@ -60,6 +60,14 @@ func main() {
 	// Add middlewares to the Gin router.
 	// The order of middlewares is important to ensure they function correctly:
 	var middlewares = []gin.HandlerFunc{
+		middleware.Recovery(),
+		middleware.Trace(middleware.WithTracerProvider(tracerProvider)),
+		middleware.RequestID(middleware.WithRequestIDHeader("X-Request-ID")),
+		middleware.RequestLogger(
+			middleware.WithRequestLogger(logger),
+			middleware.WithRequestLoggerFilter(func(req *http.Request) bool {
+				return req.URL.Path != "/health"
+			})),
 		middleware.CircuitBreaker(middleware.WithCircuitBreakerSettings(gobreaker.Settings{
 			Name: "TestCircuitBreaker",
 			ReadyToTrip: func(counts gobreaker.Counts) bool {
@@ -71,16 +79,12 @@ func main() {
 			},
 			Timeout: 10 * time.Second,
 		})),
-		middleware.Trace(middleware.WithTracerProvider(tracerProvider)),
-		middleware.RequestID(middleware.WithRequestIDHeader("X-Request-ID")),
-		middleware.RequestLogger(
-			middleware.WithRequestLogger(logger),
-			middleware.WithRequestLoggerFilter(func(req *http.Request) bool {
-				return req.URL.Path != "/health"
-			})),
-		middleware.Recovery(),
+		middleware.Prometheus("gin-middleware-testing"),
 	}
 	router.Use(middlewares...)
+
+	// Metrics handler
+	router.GET("/metrics", middleware.MetricsHandler())
 
 	// Health check handler
 	router.GET("/health", func(c *gin.Context) {

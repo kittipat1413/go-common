@@ -19,6 +19,7 @@ type DefaultMiddlewareConfig struct {
 //   - Trace: Instruments incoming requests with OpenTelemetry spans if a TracerProvider is given.
 //   - RequestID: Ensures each request has a unique identifier (injected in the header and context).
 //   - RequestLogger: Logs incoming requests with metadata such as method, route, and status code.
+//   - Prometheus: Exposes metrics for monitoring and alerting via Prometheus.
 //
 // The behavior of certain middlewares (e.g., tracing, logging) is influenced by
 // the fields in DefaultMiddlewareConfig. If the TracerProvider is nil, the global
@@ -40,6 +41,7 @@ func ConfigureDefaultMiddlewares(config DefaultMiddlewareConfig) []gin.HandlerFu
 		RequestID(),
 		RequestLogger(WithRequestLogger(config.Logger)),
 		CircuitBreaker(),
+		Prometheus(""),
 	}
 	return middlewares
 }
