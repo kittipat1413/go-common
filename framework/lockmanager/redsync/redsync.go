@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kittipat1413/go-common/framework/locker"
+	"github.com/kittipat1413/go-common/framework/lockmanager"
 	"github.com/rs/xid"
 
 	"github.com/go-redsync/redsync/v4"
@@ -62,7 +62,7 @@ func WithRedsyncOptions(opts ...redsync.Option) Option {
 //	}
 //
 //	defer locker.Release(ctx, "resource-key", token)
-func NewRedsyncLockManager(redisClient redis.UniversalClient, opts ...Option) locker.LockManager {
+func NewRedsyncLockManager(redisClient redis.UniversalClient, opts ...Option) lockmanager.LockManager {
 	pool := goredis.NewPool(redisClient)
 	rs := redsync.New(pool)
 
@@ -103,7 +103,7 @@ func (r *redsyncLockManager) Acquire(ctx context.Context, key string, ttl time.D
 	if err := mutex.LockContext(ctx); err != nil {
 		var taken *redsync.ErrTaken
 		if errors.As(err, &taken) {
-			return "", locker.ErrLockAlreadyTaken
+			return "", lockmanager.ErrLockAlreadyTaken
 		}
 		return "", fmt.Errorf("redsync lock failed: %w", err)
 	}
@@ -129,7 +129,7 @@ func (r *redsyncLockManager) Release(ctx context.Context, key string, token stri
 
 	case errors.As(err, new(*redsync.ErrTaken)):
 		// someone else holds the lock – not permitted
-		return locker.ErrUnlockNotPermitted
+		return lockmanager.ErrUnlockNotPermitted
 
 	case !ok:
 		// unexpected error during unlock

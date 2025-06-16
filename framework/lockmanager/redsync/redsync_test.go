@@ -7,8 +7,8 @@ import (
 
 	"github.com/go-redis/redismock/v9"
 	"github.com/go-redsync/redsync/v4"
-	"github.com/kittipat1413/go-common/framework/locker"
-	redsyncLocker "github.com/kittipat1413/go-common/framework/locker/redsync"
+	"github.com/kittipat1413/go-common/framework/lockmanager"
+	redsyncLocker "github.com/kittipat1413/go-common/framework/lockmanager/redsync"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -100,7 +100,7 @@ func TestRedsyncLockManager_AcquireFails_WhenLockAlreadyExists(t *testing.T) {
 	// Acquire lock
 	mock.Regexp().ExpectSetNX(key, `[a-z]+`, ttl).SetErr(&redsync.ErrTaken{})
 	token, err := manager.Acquire(ctx, key, ttl)
-	assert.ErrorIs(t, err, locker.ErrLockAlreadyTaken)
+	assert.ErrorIs(t, err, lockmanager.ErrLockAlreadyTaken)
 	assert.Empty(t, token)
 }
 
@@ -171,7 +171,7 @@ func TestRedsyncLockManager_ReleaseFails_WhenTokenDoesNotMatch(t *testing.T) {
 	// Release lock
 	mock.Regexp().ExpectEvalSha(`[a-z]+`, []string{key}, mismatchedToken).SetErr(&redsync.ErrTaken{})
 	err = manager.Release(ctx, key, mismatchedToken)
-	assert.ErrorIs(t, err, locker.ErrUnlockNotPermitted)
+	assert.ErrorIs(t, err, lockmanager.ErrUnlockNotPermitted)
 }
 
 func TestRedsyncLockManager_ReleaseFails_WhenRedisError(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"github.com/go-redsync/redsync/v4"
 	"github.com/redis/go-redis/v9"
 
-	redsyncLocker "github.com/kittipat1413/go-common/framework/locker/redsync"
+	redsyncLocker "github.com/kittipat1413/go-common/framework/lockmanager/redsync"
 )
 
 func main() {

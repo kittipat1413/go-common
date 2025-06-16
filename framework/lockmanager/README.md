@@ -1,8 +1,8 @@
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kittipat1413/go-common/issues)
 [![Release](https://img.shields.io/github/release/kittipat1413/go-common.svg?style=flat)](https://github.com/kittipat1413/go-common/releases/latest)
 
-# Locker Package
-The Locker package provides a unified and extensible distributed locking interface for Go applications. It offers a consistent way to implement distributed locks across different services, making it easy to coordinate access to shared resources in distributed systems.
+# Lock Manager Package
+The Lock Manager package provides a unified and extensible distributed locking interface for Go applications. It offers a consistent way to implement distributed locks across different services, making it easy to coordinate access to shared resources in distributed systems.
 
 ## Features
 - **Unified Interface:** Consistent API for different lock implementations
@@ -30,7 +30,7 @@ Create Redis LockManager
 ```go
 import (
 	"github.com/redis/go-redis/v9"
-	redsyncLocker "github.com/kittipat1413/go-common/framework/locker/redsync"
+	redsyncLocker "github.com/kittipat1413/go-common/framework/lockmanager/redsync"
 )
 
 func main() {
@@ -79,4 +79,4 @@ manager := redsyncLocker.NewRedsyncLockManager(
 ```
 
 ## Example
-You can find a complete working example in the repository under [framework/locker/example](example/).
+You can find a complete working example in the repository under [framework/lockmanager/example](example/).
