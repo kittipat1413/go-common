@@ -30,4 +30,3 @@ issues:
     - path: example
       linters:
         - gosec
-
