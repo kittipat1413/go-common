@@ -6,10 +6,12 @@ The Lock Manager package provides a unified and extensible distributed locking i
 
 ## Features
 - **Unified Interface:** Consistent API for different lock implementations
-- **Redis Implementation:** Built-in support for Redis-based distributed locks
+- **[Redis Implementation](./redsync/):** Built-in support for Redis-based distributed locks
   - **Customizable Lock Options:** Configure lock behavior with options like TTL and retry parameters
   - **Context Support:** All operations respect context cancellation and deadlines
-  - **Auto-Release:** Locks are automatically released when the context is done
+- **[LocalLock Implementation](./locallock/):** Simple in-memory lock for local use cases
+  - **Custom Token Generation:** Optionally provide custom token generation logic
+  - **Auto Cleanup:** Locks are automatically cleaned up when ttl expires
 
 ## Usage
 Locking Interface
