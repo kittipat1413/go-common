@@ -11,22 +11,31 @@ import (
 	"github.com/kittipat1413/go-common/framework/logger"
 )
 
+// ShutdownTask represents a task to be executed during graceful shutdown
+type ShutdownTask struct {
+	Name string
+	Op   ShutdownOperation
+}
+
 // ShutdownOperation defines a function type for shutdown operations
 type ShutdownOperation func(ctx context.Context) error
 
-// GracefulShutdownSystem waits for OS signal or error then runs shutdown hooks
+// GracefulShutdownSystem waits for OS signal or error then runs provided shutdown tasks in the given order
+// within the specified timeout. It returns a channel that's closed once all tasks complete or the timeout elapses.
 func GracefulShutdownSystem(
 	ctx context.Context,
 	appLogger logger.Logger, // Logger for logging
 	errCh <-chan error, // Channel for internal errors
 	timeout time.Duration, // Timeout for graceful shutdown
-	shutdownOps map[string]ShutdownOperation, // Map of shutdown operation names to shutdown operation
+	shutdownTasks []ShutdownTask, // Ordered list of shutdown tasks
 ) <-chan struct{} {
 	if appLogger == nil {
 		appLogger = logger.FromContext(ctx)
 	}
 
+	// done channel to signal completion
 	done := make(chan struct{})
+
 	// Start a goroutine to handle shutdown
 	go func() {
 		defer close(done)
@@ -48,13 +57,13 @@ func GracefulShutdownSystem(
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
-		// Run each operation
-		for name, op := range shutdownOps {
-			appLogger.Warn(ctx, fmt.Sprintf("[shutdown] running %s", name), nil)
-			if err := op(shutdownCtx); err != nil {
-				appLogger.Error(ctx, fmt.Sprintf("[shutdown] %s failed", name), err, nil)
+		// Execute operations in defined order
+		for _, task := range shutdownTasks {
+			appLogger.Warn(ctx, fmt.Sprintf("[shutdown] running %s", task.Name), nil)
+			if err := task.Op(shutdownCtx); err != nil {
+				appLogger.Error(ctx, fmt.Sprintf("[shutdown] %s failed", task.Name), err, nil)
 			} else {
-				appLogger.Warn(ctx, fmt.Sprintf("[shutdown] %s completed", name), nil)
+				appLogger.Warn(ctx, fmt.Sprintf("[shutdown] %s completed", task.Name), nil)
 			}
 		}
 	}()

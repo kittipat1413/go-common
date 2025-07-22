@@ -25,19 +25,26 @@ func TestGracefulShutdownSystem(t *testing.T) {
 	// Create flags to confirm shutdown operations were executed
 	shutdownExecuted := make(map[string]bool)
 
-	shutdownOps := map[string]serverutils.ShutdownOperation{
-		"db": func(ctx context.Context) error {
-			shutdownExecuted["db"] = true
-			return nil
+	// Define shutdown tasks
+	shutdownTasks := []serverutils.ShutdownTask{
+		{
+			Name: "db",
+			Op: func(ctx context.Context) error {
+				shutdownExecuted["db"] = true
+				return nil
+			},
 		},
-		"cache": func(ctx context.Context) error {
-			shutdownExecuted["cache"] = true
-			return nil
+		{
+			Name: "cache",
+			Op: func(ctx context.Context) error {
+				shutdownExecuted["cache"] = true
+				return nil
+			},
 		},
 	}
 
 	// Start the graceful shutdown system
-	done := serverutils.GracefulShutdownSystem(ctx, appLogger, errCh, 5*time.Second, shutdownOps)
+	done := serverutils.GracefulShutdownSystem(ctx, appLogger, errCh, 5*time.Second, shutdownTasks)
 
 	// Simulate sending an interrupt signal
 	go func() {
@@ -58,6 +65,63 @@ func TestGracefulShutdownSystem(t *testing.T) {
 	assert.True(t, shutdownExecuted["cache"], "cache shutdown operation should be executed")
 }
 
+func TestGracefulShutdownSystem_Order(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	appLogger := logger.NewNoopLogger()
+
+	// Internal error channel
+	errCh := make(chan error, 1)
+
+	// Create flags to confirm shutdown operations were executed in order
+	shutdownOrder := []string{}
+
+	// Define shutdown tasks with specific order
+	shutdownTasks := []serverutils.ShutdownTask{
+		{
+			Name: "first",
+			Op: func(ctx context.Context) error {
+				shutdownOrder = append(shutdownOrder, "first")
+				return nil
+			},
+		},
+		{
+			Name: "second",
+			Op: func(ctx context.Context) error {
+				shutdownOrder = append(shutdownOrder, "second")
+				return nil
+			},
+		},
+		{
+			Name: "third",
+			Op: func(ctx context.Context) error {
+				shutdownOrder = append(shutdownOrder, "third")
+				return nil
+			},
+		},
+	}
+
+	// Start the graceful shutdown system
+	done := serverutils.GracefulShutdownSystem(ctx, appLogger, errCh, 5*time.Second, shutdownTasks)
+
+	// Simulate sending an interrupt signal
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		p, _ := os.FindProcess(os.Getpid())
+		_ = p.Signal(syscall.SIGINT)
+	}()
+
+	select {
+	case <-done:
+		// success
+	case <-time.After(3 * time.Second):
+		t.Fatal("timeout waiting for graceful shutdown to complete")
+	}
+
+	assert.Equal(t, []string{"first", "second", "third"}, shutdownOrder, "shutdown operations should be executed in the defined order")
+}
+
 func TestGracefulShutdownSystem_ErrorCase(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -70,15 +134,19 @@ func TestGracefulShutdownSystem_ErrorCase(t *testing.T) {
 	// Create flags to confirm shutdown operations were executed
 	shutdownExecuted := make(map[string]bool)
 
-	shutdownOps := map[string]serverutils.ShutdownOperation{
-		"service": func(ctx context.Context) error {
-			shutdownExecuted["service"] = true
-			return errors.New("shutdown failed")
+	// Define shutdown tasks
+	shutdownTasks := []serverutils.ShutdownTask{
+		{
+			Name: "service",
+			Op: func(ctx context.Context) error {
+				shutdownExecuted["service"] = true
+				return errors.New("shutdown failed")
+			},
 		},
 	}
 
 	// Start the graceful shutdown system
-	done := serverutils.GracefulShutdownSystem(ctx, appLogger, errCh, 5*time.Second, shutdownOps)
+	done := serverutils.GracefulShutdownSystem(ctx, appLogger, errCh, 5*time.Second, shutdownTasks)
 
 	// Simulate sending an error instead of OS signal
 	go func() {
@@ -108,15 +176,19 @@ func TestGracefulShutdownSystem_ContextCancelled(t *testing.T) {
 	// Create flags to confirm shutdown operations were executed
 	shutdownExecuted := make(map[string]bool)
 
-	shutdownOps := map[string]serverutils.ShutdownOperation{
-		"worker": func(ctx context.Context) error {
-			shutdownExecuted["worker"] = true
-			return nil
+	// Define shutdown tasks
+	shutdownTasks := []serverutils.ShutdownTask{
+		{
+			Name: "worker",
+			Op: func(ctx context.Context) error {
+				shutdownExecuted["worker"] = true
+				return nil
+			},
 		},
 	}
 
 	// Start the graceful shutdown system
-	done := serverutils.GracefulShutdownSystem(ctx, appLogger, errCh, 5*time.Second, shutdownOps)
+	done := serverutils.GracefulShutdownSystem(ctx, appLogger, errCh, 5*time.Second, shutdownTasks)
 
 	// Simulate a manual cancellation of the context
 	go func() {
