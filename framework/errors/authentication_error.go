@@ -20,6 +20,25 @@ func NewAuthenticationError(message string, data interface{}) error {
 	}
 }
 
+// As checks if the error can be assigned to the target interface.
+// It supports both pointer and non-pointer types for the target.
+func (e *AuthenticationError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+
+	switch t := target.(type) {
+	case **AuthenticationError:
+		*t = e
+		return true
+	case *AuthenticationError:
+		*t = *e
+		return true
+	default:
+		return false
+	}
+}
+
 type UnauthorizedError struct {
 	*BaseError
 }
@@ -40,6 +59,25 @@ func NewUnauthorizedError(message string, data interface{}) error {
 	}
 }
 
+// As checks if the error can be assigned to the target interface.
+// It supports both pointer and non-pointer types for the target.
+func (e *UnauthorizedError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+
+	switch t := target.(type) {
+	case **UnauthorizedError:
+		*t = e
+		return true
+	case *UnauthorizedError:
+		*t = *e
+		return true
+	default:
+		return false
+	}
+}
+
 type ForbiddenError struct {
 	*BaseError
 }
@@ -57,6 +95,25 @@ func NewForbiddenError(message string, data interface{}) error {
 	}
 	return &ForbiddenError{
 		BaseError: baseErr,
+	}
+}
+
+// As checks if the error can be assigned to the target interface.
+// It supports both pointer and non-pointer types for the target.
+func (e *ForbiddenError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+
+	switch t := target.(type) {
+	case **ForbiddenError:
+		*t = e
+		return true
+	case *ForbiddenError:
+		*t = *e
+		return true
+	default:
+		return false
 	}
 }
 

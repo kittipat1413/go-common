@@ -20,6 +20,25 @@ func NewInternalServerError(message string, data interface{}) error {
 	}
 }
 
+// As checks if the error can be assigned to the target interface.
+// It supports both pointer and non-pointer types for the target.
+func (e *InternalServerError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+
+	switch t := target.(type) {
+	case **InternalServerError:
+		*t = e
+		return true
+	case *InternalServerError:
+		*t = *e
+		return true
+	default:
+		return false
+	}
+}
+
 type DatabaseError struct {
 	*BaseError
 }
@@ -37,6 +56,25 @@ func NewDatabaseError(message string, data interface{}) error {
 	}
 	return &DatabaseError{
 		BaseError: baseErr,
+	}
+}
+
+// As checks if the error can be assigned to the target interface.
+// It supports both pointer and non-pointer types for the target.
+func (e *DatabaseError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+
+	switch t := target.(type) {
+	case **DatabaseError:
+		*t = e
+		return true
+	case *DatabaseError:
+		*t = *e
+		return true
+	default:
+		return false
 	}
 }
 
@@ -60,6 +98,25 @@ func NewThirdPartyError(message string, data interface{}) error {
 	}
 }
 
+// As checks if the error can be assigned to the target interface.
+// It supports both pointer and non-pointer types for the target.
+func (e *ThirdPartyError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+
+	switch t := target.(type) {
+	case **ThirdPartyError:
+		*t = e
+		return true
+	case *ThirdPartyError:
+		*t = *e
+		return true
+	default:
+		return false
+	}
+}
+
 type ServiceUnavailableError struct {
 	*BaseError
 }
@@ -77,6 +134,25 @@ func NewServiceUnavailableError(message string, data interface{}) error {
 	}
 	return &ServiceUnavailableError{
 		BaseError: baseErr,
+	}
+}
+
+// As checks if the error can be assigned to the target interface.
+// It supports both pointer and non-pointer types for the target.
+func (e *ServiceUnavailableError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+
+	switch t := target.(type) {
+	case **ServiceUnavailableError:
+		*t = e
+		return true
+	case *ServiceUnavailableError:
+		*t = *e
+		return true
+	default:
+		return false
 	}
 }
 

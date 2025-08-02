@@ -20,6 +20,25 @@ func NewClientError(message string, data interface{}) error {
 	}
 }
 
+// As checks if the error can be assigned to the target interface.
+// It supports both pointer and non-pointer types for the target.
+func (e *ClientError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+
+	switch t := target.(type) {
+	case **ClientError:
+		*t = e
+		return true
+	case *ClientError:
+		*t = *e
+		return true
+	default:
+		return false
+	}
+}
+
 type BadRequestError struct {
 	*BaseError
 }
@@ -37,6 +56,25 @@ func NewBadRequestError(message string, data interface{}) error {
 	}
 	return &BadRequestError{
 		BaseError: baseErr,
+	}
+}
+
+// As checks if the error can be assigned to the target interface.
+// It supports both pointer and non-pointer types for the target.
+func (e *BadRequestError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+
+	switch t := target.(type) {
+	case **BadRequestError:
+		*t = e
+		return true
+	case *BadRequestError:
+		*t = *e
+		return true
+	default:
+		return false
 	}
 }
 
@@ -60,6 +98,25 @@ func NewNotFoundError(message string, data interface{}) error {
 	}
 }
 
+// As checks if the error can be assigned to the target interface.
+// It supports both pointer and non-pointer types for the target.
+func (e *NotFoundError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+
+	switch t := target.(type) {
+	case **NotFoundError:
+		*t = e
+		return true
+	case *NotFoundError:
+		*t = *e
+		return true
+	default:
+		return false
+	}
+}
+
 type ConflictError struct {
 	*BaseError
 }
@@ -80,6 +137,25 @@ func NewConflictError(message string, data interface{}) error {
 	}
 }
 
+// As checks if the error can be assigned to the target interface.
+// It supports both pointer and non-pointer types for the target.
+func (e *ConflictError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+
+	switch t := target.(type) {
+	case **ConflictError:
+		*t = e
+		return true
+	case *ConflictError:
+		*t = *e
+		return true
+	default:
+		return false
+	}
+}
+
 type UnprocessableEntityError struct {
 	*BaseError
 }
@@ -97,6 +173,25 @@ func NewUnprocessableEntityError(message string, data interface{}) error {
 	}
 	return &UnprocessableEntityError{
 		BaseError: baseErr,
+	}
+}
+
+// As checks if the error can be assigned to the target interface.
+// It supports both pointer and non-pointer types for the target.
+func (e *UnprocessableEntityError) As(target interface{}) bool {
+	if target == nil {
+		return false
+	}
+
+	switch t := target.(type) {
+	case **UnprocessableEntityError:
+		*t = e
+		return true
+	case *UnprocessableEntityError:
+		*t = *e
+		return true
+	default:
+		return false
 	}
 }
 

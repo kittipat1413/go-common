@@ -1,6 +1,7 @@
 package errors_test
 
 import (
+	"errors"
 	"net/http"
 	"testing"
 
@@ -155,5 +156,510 @@ func TestNewUnprocessableEntityError(t *testing.T) {
 
 		assert.Equal(t, http.StatusUnprocessableEntity, unprocessableErr.GetHTTPCode(), "Unexpected HTTP code")
 		assert.Equal(t, domain_error.GetFullCode(domain_error.StatusCodeGenericUnprocessableEntityError), unprocessableErr.Code(), "Unexpected error code")
+	})
+}
+
+func TestClientErrorAs(t *testing.T) {
+	clientErr := domain_error.NewClientError("test error", nil).(*domain_error.ClientError)
+
+	t.Run("should work with pointer to pointer target", func(t *testing.T) {
+		var target *domain_error.ClientError
+		result := clientErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.Equal(t, clientErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("should work with pointer target", func(t *testing.T) {
+		var target domain_error.ClientError
+		result := clientErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.Equal(t, *clientErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("should return false for incompatible target", func(t *testing.T) {
+		var target *domain_error.BadRequestError
+		result := clientErr.As(&target)
+		assert.False(t, result, "As should return false for incompatible target")
+	})
+
+	t.Run("should return false for nil target", func(t *testing.T) {
+		result := clientErr.As(nil)
+		assert.False(t, result, "As should return false for nil target")
+	})
+
+	t.Run("should verify target assignment for pointer to pointer", func(t *testing.T) {
+		var target *domain_error.ClientError
+		assert.Nil(t, target, "Target should be nil initially")
+
+		result := clientErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.NotNil(t, target, "Target should not be nil after assignment")
+		assert.Same(t, clientErr, target, "Target should reference the same instance")
+		assert.Equal(t, clientErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("should verify target assignment for pointer", func(t *testing.T) {
+		var target domain_error.ClientError
+		assert.Equal(t, domain_error.ClientError{}, target, "Target should be empty initially")
+
+		result := clientErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.NotEqual(t, domain_error.ThirdPartyError{}, target, "Target should not be zero value after assignment")
+		assert.Equal(t, *clientErr, target, "Target should have same value as dereferenced error")
+		assert.Equal(t, clientErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("errors.As should work with pointer to pointer target", func(t *testing.T) {
+		var target *domain_error.ClientError
+		result := errors.As(clientErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.Equal(t, clientErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("errors.As should work with pointer target", func(t *testing.T) {
+		var target domain_error.ClientError
+		result := errors.As(clientErr, &target)
+		assert.True(t, result, "errors.As should return true")
+		assert.Equal(t, *clientErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("errors.As should return false for incompatible target", func(t *testing.T) {
+		var target *domain_error.BadRequestError
+		result := errors.As(clientErr, &target)
+		assert.False(t, result, "errors.As should return false for incompatible target")
+		assert.Nil(t, target, "Target should remain nil")
+	})
+
+	t.Run("errors.As should verify target assignment for pointer to pointer", func(t *testing.T) {
+		var target *domain_error.ClientError
+		assert.Nil(t, target, "Target should be nil initially")
+
+		result := errors.As(clientErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.NotNil(t, target, "Target should not be nil after assignment")
+		assert.Same(t, clientErr, target, "Target should reference the same instance")
+		assert.Equal(t, clientErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("errors.As should verify target assignment for pointer", func(t *testing.T) {
+		var target domain_error.ClientError
+		assert.Equal(t, domain_error.ClientError{}, target, "Target should be empty initially")
+
+		result := errors.As(clientErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.NotEqual(t, domain_error.ClientError{}, target, "Target should not be zero value after assignment")
+		assert.Equal(t, *clientErr, target, "Target should have same value as dereferenced error")
+		assert.Equal(t, clientErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+}
+
+func TestBadRequestErrorAs(t *testing.T) {
+	badRequestErr := domain_error.NewBadRequestError("test error", nil).(*domain_error.BadRequestError)
+
+	t.Run("should work with pointer to pointer target", func(t *testing.T) {
+		var target *domain_error.BadRequestError
+		result := badRequestErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.Equal(t, badRequestErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("should work with pointer target", func(t *testing.T) {
+		var target domain_error.BadRequestError
+		result := badRequestErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.Equal(t, *badRequestErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("should return false for incompatible target", func(t *testing.T) {
+		var target *domain_error.ClientError
+		result := badRequestErr.As(&target)
+		assert.False(t, result, "As should return false for incompatible target")
+	})
+
+	t.Run("should return false for nil target", func(t *testing.T) {
+		result := badRequestErr.As(nil)
+		assert.False(t, result, "As should return false for nil target")
+	})
+
+	t.Run("should verify target assignment for pointer to pointer", func(t *testing.T) {
+		var target *domain_error.BadRequestError
+		assert.Nil(t, target, "Target should be nil initially")
+
+		result := badRequestErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.NotNil(t, target, "Target should not be nil after assignment")
+		assert.Same(t, badRequestErr, target, "Target should reference the same instance")
+		assert.Equal(t, badRequestErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("should verify target assignment for pointer", func(t *testing.T) {
+		var target domain_error.BadRequestError
+		assert.Equal(t, domain_error.BadRequestError{}, target, "Target should be empty initially")
+
+		result := badRequestErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.NotEqual(t, domain_error.BadRequestError{}, target, "Target should not be zero value after assignment")
+		assert.Equal(t, *badRequestErr, target, "Target should have same value as dereferenced error")
+		assert.Equal(t, badRequestErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("errors.As should work with pointer to pointer target", func(t *testing.T) {
+		var target *domain_error.BadRequestError
+		result := errors.As(badRequestErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.Equal(t, badRequestErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("errors.As should work with pointer target", func(t *testing.T) {
+		var target domain_error.BadRequestError
+		result := errors.As(badRequestErr, &target)
+		assert.True(t, result, "errors.As should return true")
+		assert.Equal(t, *badRequestErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("errors.As should return false for incompatible target", func(t *testing.T) {
+		var target *domain_error.ClientError
+		result := errors.As(badRequestErr, &target)
+		assert.False(t, result, "errors.As should return false for incompatible target")
+		assert.Nil(t, target, "Target should remain nil")
+	})
+
+	t.Run("errors.As should verify target assignment for pointer to pointer", func(t *testing.T) {
+		var target *domain_error.BadRequestError
+		assert.Nil(t, target, "Target should be nil initially")
+
+		result := errors.As(badRequestErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.NotNil(t, target, "Target should not be nil after assignment")
+		assert.Same(t, badRequestErr, target, "Target should reference the same instance")
+		assert.Equal(t, badRequestErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("errors.As should verify target assignment for pointer", func(t *testing.T) {
+		var target domain_error.BadRequestError
+		assert.Equal(t, domain_error.BadRequestError{}, target, "Target should be empty initially")
+
+		result := errors.As(badRequestErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.NotEqual(t, domain_error.BadRequestError{}, target, "Target should not be zero value after assignment")
+		assert.Equal(t, *badRequestErr, target, "Target should have same value as dereferenced error")
+		assert.Equal(t, badRequestErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+}
+
+func TestNotFoundErrorAs(t *testing.T) {
+	notFoundErr := domain_error.NewNotFoundError("test error", nil).(*domain_error.NotFoundError)
+
+	t.Run("should work with pointer to pointer target", func(t *testing.T) {
+		var target *domain_error.NotFoundError
+		result := notFoundErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.Equal(t, notFoundErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("should work with pointer target", func(t *testing.T) {
+		var target domain_error.NotFoundError
+		result := notFoundErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.Equal(t, *notFoundErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("should return false for incompatible target", func(t *testing.T) {
+		var target *domain_error.BadRequestError
+		result := notFoundErr.As(&target)
+		assert.False(t, result, "As should return false for incompatible target")
+	})
+
+	t.Run("should return false for nil target", func(t *testing.T) {
+		result := notFoundErr.As(nil)
+		assert.False(t, result, "As should return false for nil target")
+	})
+
+	t.Run("should verify target assignment for pointer to pointer", func(t *testing.T) {
+		var target *domain_error.NotFoundError
+		assert.Nil(t, target, "Target should be nil initially")
+
+		result := notFoundErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.NotNil(t, target, "Target should not be nil after assignment")
+		assert.Same(t, notFoundErr, target, "Target should reference the same instance")
+		assert.Equal(t, notFoundErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("should verify target assignment for pointer", func(t *testing.T) {
+		var target domain_error.NotFoundError
+		assert.Equal(t, domain_error.NotFoundError{}, target, "Target should be empty initially")
+
+		result := notFoundErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.NotEqual(t, domain_error.NotFoundError{}, target, "Target should not be zero value after assignment")
+		assert.Equal(t, *notFoundErr, target, "Target should have same value as dereferenced error")
+		assert.Equal(t, notFoundErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("errors.As should work with pointer to pointer target", func(t *testing.T) {
+		var target *domain_error.NotFoundError
+		result := errors.As(notFoundErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.Equal(t, notFoundErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("errors.As should work with pointer target", func(t *testing.T) {
+		var target domain_error.NotFoundError
+		result := errors.As(notFoundErr, &target)
+		assert.True(t, result, "errors.As should return true")
+		assert.Equal(t, *notFoundErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("errors.As should return false for incompatible target", func(t *testing.T) {
+		var target *domain_error.BadRequestError
+		result := errors.As(notFoundErr, &target)
+		assert.False(t, result, "errors.As should return false for incompatible target")
+		assert.Nil(t, target, "Target should remain nil")
+	})
+
+	t.Run("errors.As should verify target assignment for pointer to pointer", func(t *testing.T) {
+		var target *domain_error.NotFoundError
+		assert.Nil(t, target, "Target should be nil initially")
+
+		result := errors.As(notFoundErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.NotNil(t, target, "Target should not be nil after assignment")
+		assert.Same(t, notFoundErr, target, "Target should reference the same instance")
+		assert.Equal(t, notFoundErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("errors.As should verify target assignment for pointer", func(t *testing.T) {
+		var target domain_error.NotFoundError
+		assert.Equal(t, domain_error.NotFoundError{}, target, "Target should be empty initially")
+
+		result := errors.As(notFoundErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.NotEqual(t, domain_error.NotFoundError{}, target, "Target should not be zero value after assignment")
+		assert.Equal(t, *notFoundErr, target, "Target should have same value as dereferenced error")
+		assert.Equal(t, notFoundErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+}
+
+func TestConflictErrorAs(t *testing.T) {
+	conflictErr := domain_error.NewConflictError("test error", nil).(*domain_error.ConflictError)
+
+	t.Run("should work with pointer to pointer target", func(t *testing.T) {
+		var target *domain_error.ConflictError
+		result := conflictErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.Equal(t, conflictErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("should work with pointer target", func(t *testing.T) {
+		var target domain_error.ConflictError
+		result := conflictErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.Equal(t, *conflictErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("should return false for incompatible target", func(t *testing.T) {
+		var target *domain_error.BadRequestError
+		result := conflictErr.As(&target)
+		assert.False(t, result, "As should return false for incompatible target")
+	})
+
+	t.Run("should return false for nil target", func(t *testing.T) {
+		result := conflictErr.As(nil)
+		assert.False(t, result, "As should return false for nil target")
+	})
+
+	t.Run("should verify target assignment for pointer to pointer", func(t *testing.T) {
+		var target *domain_error.ConflictError
+		assert.Nil(t, target, "Target should be nil initially")
+
+		result := conflictErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.NotNil(t, target, "Target should not be nil after assignment")
+		assert.Same(t, conflictErr, target, "Target should reference the same instance")
+		assert.Equal(t, conflictErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("should verify target assignment for pointer", func(t *testing.T) {
+		var target domain_error.ConflictError
+		assert.Equal(t, domain_error.ConflictError{}, target, "Target should be empty initially")
+
+		result := conflictErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.NotEqual(t, domain_error.ConflictError{}, target, "Target should not be zero value after assignment")
+		assert.Equal(t, *conflictErr, target, "Target should have same value as dereferenced error")
+		assert.Equal(t, conflictErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("errors.As should work with pointer to pointer target", func(t *testing.T) {
+		var target *domain_error.ConflictError
+		result := errors.As(conflictErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.Equal(t, conflictErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("errors.As should work with pointer target", func(t *testing.T) {
+		var target domain_error.ConflictError
+		result := errors.As(conflictErr, &target)
+		assert.True(t, result, "errors.As should return true")
+		assert.Equal(t, *conflictErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("errors.As should return false for incompatible target", func(t *testing.T) {
+		var target *domain_error.BadRequestError
+		result := errors.As(conflictErr, &target)
+		assert.False(t, result, "errors.As should return false for incompatible target")
+		assert.Nil(t, target, "Target should remain nil")
+	})
+
+	t.Run("errors.As should verify target assignment for pointer to pointer", func(t *testing.T) {
+		var target *domain_error.ConflictError
+		assert.Nil(t, target, "Target should be nil initially")
+
+		result := errors.As(conflictErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.NotNil(t, target, "Target should not be nil after assignment")
+		assert.Same(t, conflictErr, target, "Target should reference the same instance")
+		assert.Equal(t, conflictErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("errors.As should verify target assignment for pointer", func(t *testing.T) {
+		var target domain_error.ConflictError
+		assert.Equal(t, domain_error.ConflictError{}, target, "Target should be empty initially")
+
+		result := errors.As(conflictErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.NotEqual(t, domain_error.ConflictError{}, target, "Target should not be zero value after assignment")
+		assert.Equal(t, *conflictErr, target, "Target should have same value as dereferenced error")
+		assert.Equal(t, conflictErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+}
+
+func TestUnprocessableEntityErrorAs(t *testing.T) {
+	unprocessableErr := domain_error.NewUnprocessableEntityError("test error", nil).(*domain_error.UnprocessableEntityError)
+
+	t.Run("should work with pointer to pointer target", func(t *testing.T) {
+		var target *domain_error.UnprocessableEntityError
+		result := unprocessableErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.Equal(t, unprocessableErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("should work with pointer target", func(t *testing.T) {
+		var target domain_error.UnprocessableEntityError
+		result := unprocessableErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.Equal(t, *unprocessableErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("should return false for incompatible target", func(t *testing.T) {
+		var target *domain_error.BadRequestError
+		result := unprocessableErr.As(&target)
+		assert.False(t, result, "As should return false for incompatible target")
+	})
+
+	t.Run("should return false for nil target", func(t *testing.T) {
+		result := unprocessableErr.As(nil)
+		assert.False(t, result, "As should return false for nil target")
+	})
+
+	t.Run("should verify target assignment for pointer to pointer", func(t *testing.T) {
+		var target *domain_error.UnprocessableEntityError
+		assert.Nil(t, target, "Target should be nil initially")
+
+		result := unprocessableErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.NotNil(t, target, "Target should not be nil after assignment")
+		assert.Same(t, unprocessableErr, target, "Target should reference the same instance")
+		assert.Equal(t, unprocessableErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("should verify target assignment for pointer", func(t *testing.T) {
+		var target domain_error.UnprocessableEntityError
+		assert.Equal(t, domain_error.UnprocessableEntityError{}, target, "Target should be empty initially")
+
+		result := unprocessableErr.As(&target)
+
+		assert.True(t, result, "As should return true")
+		assert.NotEqual(t, domain_error.UnprocessableEntityError{}, target, "Target should not be zero value after assignment")
+		assert.Equal(t, *unprocessableErr, target, "Target should have same value as dereferenced error")
+		assert.Equal(t, unprocessableErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("errors.As should work with pointer to pointer target", func(t *testing.T) {
+		var target *domain_error.UnprocessableEntityError
+		result := errors.As(unprocessableErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.Equal(t, unprocessableErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("errors.As should work with pointer target", func(t *testing.T) {
+		var target domain_error.UnprocessableEntityError
+		result := errors.As(unprocessableErr, &target)
+		assert.True(t, result, "errors.As should return true")
+		assert.Equal(t, *unprocessableErr, target, "Target should be assigned correctly")
+	})
+
+	t.Run("errors.As should return false for incompatible target", func(t *testing.T) {
+		var target *domain_error.BadRequestError
+		result := errors.As(unprocessableErr, &target)
+		assert.False(t, result, "errors.As should return false for incompatible target")
+		assert.Nil(t, target, "Target should remain nil")
+	})
+
+	t.Run("errors.As should verify target assignment for pointer to pointer", func(t *testing.T) {
+		var target *domain_error.UnprocessableEntityError
+		assert.Nil(t, target, "Target should be nil initially")
+
+		result := errors.As(unprocessableErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.NotNil(t, target, "Target should not be nil after assignment")
+		assert.Same(t, unprocessableErr, target, "Target should reference the same instance")
+		assert.Equal(t, unprocessableErr.GetMessage(), target.GetMessage(), "Target should have same message")
+	})
+
+	t.Run("errors.As should verify target assignment for pointer", func(t *testing.T) {
+		var target domain_error.UnprocessableEntityError
+		assert.Equal(t, domain_error.UnprocessableEntityError{}, target, "Target should be empty initially")
+
+		result := errors.As(unprocessableErr, &target)
+
+		assert.True(t, result, "errors.As should return true")
+		assert.NotEqual(t, domain_error.UnprocessableEntityError{}, target, "Target should not be zero value after assignment")
+		assert.Equal(t, *unprocessableErr, target, "Target should have same value as dereferenced error")
+		assert.Equal(t, unprocessableErr.GetMessage(), target.GetMessage(), "Target should have same message")
 	})
 }
