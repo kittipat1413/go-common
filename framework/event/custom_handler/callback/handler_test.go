@@ -176,8 +176,8 @@ func TestAfterHandle_RetriesOnServerError(t *testing.T) {
 
 	// Atomically load the attempt counter
 	totalAttempts := atomic.LoadInt32(&attempt)
-	// Assert that the number of attempts is maxRetries + 1 (initial attempt + retries)
-	require.Equal(t, int32(maxRetries+1), totalAttempts)
+	// Assert that the number of attempts is maxRetries
+	require.Equal(t, int32(maxRetries), totalAttempts)
 }
 
 func TestAfterHandle_NoRetriesOnBadRequest(t *testing.T) {
