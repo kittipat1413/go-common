@@ -26,24 +26,31 @@ go get github.com/kittipat1413/go-common/framework/logger
 ### Creating a Logger
 You can create a logger using the `NewLogger` function, providing a `Config` struct to customize its behavior:
 ```go
+package main
+
 import (
-    "github.com/kittipat1413/go-common/framework/logger"
+    "context"
     "time"
+    "github.com/kittipat1413/go-common/framework/logger"
 )
 
-logConfig := logger.Config{
-    Level: logger.INFO,
-    Formatter: &logger.StructuredJSONFormatter{
-        TimestampFormat: time.RFC3339,
-        PrettyPrint:     false,
-    },
-    Environment: "production",
-    ServiceName: "my-service",
-}
+func main() {
+    logConfig := logger.Config{
+        Level: logger.INFO,
+        Formatter: &logger.StructuredJSONFormatter{
+            TimestampFormat: time.RFC3339,
+            PrettyPrint:     false,
+        },
+        Environment: "production",
+        ServiceName: "my-service",
+    }
+    
+    log, err := logger.NewLogger(logConfig)
+    if err != nil {
+        panic(err)
+    }
 
-log, err := logger.NewLogger(logConfig)
-if err != nil {
-    panic(err)
+    log.Info(context.Background(), "Logger initialized successfully", nil)
 }
 ```
 
