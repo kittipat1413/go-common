@@ -11,25 +11,37 @@ import (
 )
 
 const (
-	NoExpireDuration       time.Duration = -1
-	defaultExpireDuration  time.Duration = NoExpireDuration
+	// NoExpireDuration indicates that cache items should not expire.
+	// Use this value to store items permanently in the cache.
+	NoExpireDuration time.Duration = -1
+
+	// defaultExpireDuration is the default expiration duration for cache items.
+	// Set to NoExpireDuration, meaning items don't expire by default.
+	defaultExpireDuration time.Duration = NoExpireDuration
+
+	// defaultCleanupInterval is the default interval for cleaning up expired items.
+	// The cleanup process runs every 5 minutes by default.
 	defaultCleanupInterval time.Duration = 5 * time.Minute
 )
 
+// item represents a cached item with its data and optional expiration time.
 type item[T any] struct {
-	data    T
-	expires *time.Time
+	data    T          // The cached data
+	expires *time.Time // Expiration time (nil means no expiration)
 }
 
+// config holds the configuration options for the local cache.
 type config struct {
-	defaultExpireDuration time.Duration
-	cleanupInterval       time.Duration
-	stopCleanupChannel    chan struct{}
+	defaultExpireDuration time.Duration // Default expiration duration for items
+	cleanupInterval       time.Duration // Interval for automatic cleanup of expired items
+	stopCleanupChannel    chan struct{} // Channel to signal cleanup goroutine to stop
 }
 
+// Option is a function type for configuring the local cache.
 type Option func(*config)
 
 // WithDefaultExpiration sets the default expiration duration for cache items.
+// If not specified, items will not expire by default.
 func WithDefaultExpiration(expiration time.Duration) Option {
 	return func(c *config) {
 		c.defaultExpireDuration = expiration
@@ -37,12 +49,14 @@ func WithDefaultExpiration(expiration time.Duration) Option {
 }
 
 // WithCleanupInterval sets the interval for automatically cleaning up expired items.
+// A background goroutine will run periodically to remove expired items from memory.
 func WithCleanupInterval(interval time.Duration) Option {
 	return func(c *config) {
 		c.cleanupInterval = interval
 	}
 }
 
+// newConfig creates a new configuration with default values and applies the provided options.
 func newConfig(opts ...Option) *config {
 	c := &config{
 		defaultExpireDuration: defaultExpireDuration,
@@ -57,6 +71,8 @@ func newConfig(opts ...Option) *config {
 	return c
 }
 
+// localcache is an in-memory cache implementation that provides thread-safe operations
+// with automatic expiration and cleanup of items.
 type localcache[T any] struct {
 	mutex sync.RWMutex
 	group singleflight.Group
@@ -65,7 +81,29 @@ type localcache[T any] struct {
 }
 
 // New creates a new localcache instance with optional configurations.
-// It applies defaults if no options are provided.
+// It applies defaults if no options are provided and starts the cleanup
+// goroutine if a cleanup interval is configured.
+//
+// The cache is thread-safe and can be used concurrently from multiple goroutines.
+// A background cleanup process will automatically remove expired items based on
+// the configured cleanup interval.
+//
+// Parameters:
+//   - opts: Optional configuration functions
+//
+// Returns:
+//   - A new cache.Cache[T] instance
+//
+// Example:
+//
+//	// Create cache with default settings
+//	cache := New[string]()
+//
+//	// Create cache with custom expiration and cleanup interval
+//	cache := New[User](
+//		WithDefaultExpiration(30 * time.Minute),
+//		WithCleanupInterval(5 * time.Minute),
+//	)
 func New[T any](opts ...Option) cache.Cache[T] {
 	cfg := newConfig(opts...)
 	c := &localcache[T]{
@@ -81,8 +119,13 @@ func New[T any](opts ...Option) cache.Cache[T] {
 	return c
 }
 
-// Get retrieves a value from the cache. If the key is missing and an initializer
-// is provided, it uses the initializer to obtain the value.
+// Get retrieves a value from the cache by key. If the key is missing and an initializer
+// is provided, it uses the initializer to obtain the value using singleflight to prevent
+// cache stampedes.
+//
+// The method first checks if the key exists and is not expired. If found, returns the cached value.
+// If not found and an initializer is provided, it calls the initializer exactly once even if
+// multiple goroutines request the same key simultaneously.
 func (c *localcache[T]) Get(ctx context.Context, key string, initializer cache.Initializer[T]) (T, error) {
 	if data, ok := c.get(key); ok {
 		return data, nil
@@ -96,8 +139,7 @@ func (c *localcache[T]) Get(ctx context.Context, key string, initializer cache.I
 }
 
 // Set adds an item to the cache with the specified key and duration.
-// If duration is nil, the default expiration is used.
-// If duration is NoExpireDuration, the item does not expire.
+// The method handles various expiration scenarios based on the duration parameter.
 func (c *localcache[T]) Set(ctx context.Context, key string, value T, duration *time.Duration) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -117,6 +159,8 @@ func (c *localcache[T]) Set(ctx context.Context, key string, value T, duration *
 	}
 }
 
+// Invalidate removes a specific key from the cache.
+// If the key does not exist, this operation succeeds without error.
 func (c *localcache[T]) Invalidate(ctx context.Context, key string) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -125,6 +169,9 @@ func (c *localcache[T]) Invalidate(ctx context.Context, key string) error {
 	return nil
 }
 
+// InvalidateAll removes all entries from the cache.
+// This operation clears the entire cache, regardless of expiration times.
+// Memory is freed by creating a new map.
 func (c *localcache[T]) InvalidateAll(ctx context.Context) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -133,6 +180,8 @@ func (c *localcache[T]) InvalidateAll(ctx context.Context) error {
 	return nil
 }
 
+// get is an internal method that retrieves a value from the cache without initialization.
+// It checks expiration and returns false for expired items.
 func (c *localcache[T]) get(key string) (result T, ok bool) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
@@ -147,6 +196,9 @@ func (c *localcache[T]) get(key string) (result T, ok bool) {
 	return
 }
 
+// initialize is an internal method that handles cache initialization using singleflight.
+// It ensures that only one goroutine calls the initializer for each key, preventing
+// cache stampede scenarios.
 func (c *localcache[T]) initialize(ctx context.Context, key string, initializer cache.Initializer[T]) (T, error) {
 	v, err, _ := c.group.Do(key, func() (interface{}, error) {
 		// Double-check if the item was initialized by another goroutine
@@ -173,6 +225,11 @@ func (c *localcache[T]) initialize(ctx context.Context, key string, initializer 
 }
 
 // startCleanup runs a background goroutine to periodically remove expired items.
+// This method is automatically called when creating a new cache instance if
+// a cleanup interval is configured.
+//
+// The cleanup process will continue until StopCleanup() is called or the
+// stopCleanupChannel is closed.
 func (c *localcache[T]) startCleanup() {
 	ticker := time.NewTicker(c.cleanupInterval)
 	defer ticker.Stop()
@@ -188,6 +245,8 @@ func (c *localcache[T]) startCleanup() {
 }
 
 // deleteExpired removes all expired items from the cache.
+// This method is called periodically by the cleanup goroutine and can also
+// be called manually if needed.
 func (c *localcache[T]) deleteExpired() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -200,7 +259,9 @@ func (c *localcache[T]) deleteExpired() {
 	}
 }
 
-// StopCleanup stops the background cleanup process.
+// StopCleanup stops the background cleanup process gracefully.
+// This method should be called when the cache is no longer needed to
+// prevent goroutine leaks.
 func (c *localcache[T]) StopCleanup() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
