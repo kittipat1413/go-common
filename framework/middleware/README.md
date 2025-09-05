@@ -27,5 +27,11 @@ The middleware package provides reusable middleware components for Go web applic
     - Configurable namespace for metrics.
     - Provides a `/metrics` endpoint for Prometheus scraping.
 
+## Installation
+- **Gin**
+    ```bash
+    go get github.com/kittipat1413/go-common/framework/middleware/gin
+    ```
+
 ## Examples
 - You can find a complete working example in the repository under [framework/middleware/example](example/).
