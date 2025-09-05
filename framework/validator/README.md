@@ -10,6 +10,11 @@ The validator package provides an extensible, customizable validation system bui
 - Simplified API for struct validation.
 - Extensible design for adding more `custom validators`.
 
+## Installation
+```bash
+go get github.com/kittipat1413/go-common
+```
+
 ## Usage
 
 ### Basic Validation

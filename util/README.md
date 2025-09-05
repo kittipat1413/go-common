@@ -7,6 +7,11 @@ The `util` directory provides a collection of reusable helper utilities designed
 
 ---
 
+## Installation
+```bash
+go get github.com/kittipat1413/go-common
+```
+
 ## Available Packages
 
 ### `pointer`
@@ -17,11 +22,3 @@ The `util` directory provides a collection of reusable helper utilities designed
 
 ### `slice`
 - Generic slice manipulation helpers.
-
-## 🛠️ Future Additions
-
-Planned or potential utility packages may include:
-- `strings`: for string transformations and validations.
-- `timeutil`: for time parsing and manipulation.
-- `env`: for safe environment variable parsing.
-- `config`: for config loading from file/env.

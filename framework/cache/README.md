@@ -7,6 +7,11 @@ This package provides a flexible and extensible caching interface designed for G
 ## Introduction
 The Cache Package provides a unified caching interface (`Cache[T]`) with support for generic types, enabling type-safe caching of any data type. The package is designed with extensibility in mind, allowing for multiple cache implementations that conform to the same interface. This design enables you to switch between different cache backends (e.g., in-memory, Redis, Memcached) without changing your application logic.
 
+## Installation
+```bash
+go get github.com/kittipat1413/go-common
+```
+
 ## Usage
 ### Cache Interface
 The core of the cache package is the `Cache[T]` interface, which defines the methods that all cache implementations must provide:

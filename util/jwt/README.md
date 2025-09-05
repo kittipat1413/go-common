@@ -6,6 +6,11 @@ JWT Manager provides a reusable and extensible interface for creating and valida
 - **Token Validation**: Parse and validate tokens with support for custom claims.
 - **Pluggable Signing Methods**: Easily switch between HS256 (HMAC) and RS256 (RSA).
 
+## Installation
+```bash
+go get github.com/kittipat1413/go-common
+```
+
 ## Usage
 ### JWTManager Interface
 ```go

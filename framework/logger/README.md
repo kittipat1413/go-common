@@ -9,6 +9,11 @@ The logger package provides a structured, context-aware logging solution for Go 
 - Customizable log formatters and output destinations.
 - Integration with web frameworks like Gin.
 
+## Installation
+```bash
+go get github.com/kittipat1413/go-common
+```
+
 ## Features
 - **Structured Logging**: Outputs logs in JSON format, making them easy to parse and analyze.
 - **Context-Aware**: Supports logging with `context.Context`, allowing you to include tracing information automatically.

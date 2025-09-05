@@ -13,6 +13,11 @@ The Lock Manager package provides a unified and extensible distributed locking i
   - **Custom Token Generation:** Optionally provide custom token generation logic
   - **Auto Cleanup:** Locks are automatically cleaned up when ttl expires
 
+## Installation
+```bash
+go get github.com/kittipat1413/go-common
+```
+
 ## Usage
 Locking Interface
 The core of the package is the `LockManager` interface:

@@ -10,6 +10,11 @@ The config package provides a reusable and extensible configuration loader built
 - **Injectable Defaults**: Provide fallback values when env or file values are not present.
 - **Context Integration**: Easily inject and retrieve config via `context.Context` or `*http.Request`.
 
+## Installation
+```bash
+go get github.com/kittipat1413/go-common
+```
+
 ## Usage
 This is the simplest way to get started using `MustConfig` with some defaults:
 ```go

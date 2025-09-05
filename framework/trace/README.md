@@ -10,6 +10,11 @@ The trace package provides an easy-to-use utility for adding distributed tracing
   `Stdout Exporter`: Print traces to the console for local development and debugging.
 - **Function-Level Tracing (TraceFunc)**: Automatically trace the execution of any Go function, including capturing function start/end times, execution status, and errors.
 
+## Installation
+```bash
+go get github.com/kittipat1413/go-common
+```
+
 ## Usage
 ### 1. Initialize Tracer Provider
 To initialize the Tracer Provider, call `InitTracerProvider` with the service name and desired exporter:

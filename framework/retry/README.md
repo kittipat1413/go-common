@@ -9,6 +9,11 @@ The Retry Package provides a robust and extensible interface for automatically r
 - **Context-Aware** – Automatically stops retries when the context is canceled
 - **Configurable Retry Conditions** – Choose which errors should trigger retries
 
+## Installation
+```bash
+go get github.com/kittipat1413/go-common
+```
+
 ## Usage
 ### 🧩 Interface
 ```go

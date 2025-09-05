@@ -12,6 +12,11 @@ The errors package provides a centralized error handling library for Go applicat
 - **Utilities**: Includes helper functions for wrapping, unwrapping, and extracting errors.
 - **Category Validation**: Validates that error codes align with predefined categories.
 
+## Installation
+```bash
+go get github.com/kittipat1413/go-common
+```
+
 ## Getting Started
 
 ### Setting the Service Prefix
