@@ -11,7 +11,7 @@ The logger package provides a structured, context-aware logging solution for Go 
 
 ## Installation
 ```bash
-go get github.com/kittipat1413/go-common
+go get github.com/kittipat1413/go-common/framework/logger
 ```
 
 ## Features

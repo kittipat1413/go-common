@@ -11,7 +11,7 @@ The Retry Package provides a robust and extensible interface for automatically r
 
 ## Installation
 ```bash
-go get github.com/kittipat1413/go-common
+go get github.com/kittipat1413/go-common/framework/retry
 ```
 
 ## Usage

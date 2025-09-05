@@ -5,11 +5,6 @@
 
 The `util` directory provides a collection of reusable helper utilities designed to simplify and standardize common tasks across your Go projects. These utilities are generic, lightweight, and decoupled from business logic, making them easy to use across any microservice in your ecosystem.
 
-## Installation
-```bash
-go get github.com/kittipat1413/go-common
-```
-
 ## Available Packages
 
 ### `pointer`

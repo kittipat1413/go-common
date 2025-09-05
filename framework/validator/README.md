@@ -12,7 +12,7 @@ The validator package provides an extensible, customizable validation system bui
 
 ## Installation
 ```bash
-go get github.com/kittipat1413/go-common
+go get github.com/kittipat1413/go-common/framework/validator
 ```
 
 ## Usage

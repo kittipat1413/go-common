@@ -12,7 +12,7 @@ The trace package provides an easy-to-use utility for adding distributed tracing
 
 ## Installation
 ```bash
-go get github.com/kittipat1413/go-common
+go get github.com/kittipat1413/go-common/framework/trace
 ```
 
 ## Usage

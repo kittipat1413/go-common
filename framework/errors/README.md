@@ -14,7 +14,7 @@ The errors package provides a centralized error handling library for Go applicat
 
 ## Installation
 ```bash
-go get github.com/kittipat1413/go-common
+go get github.com/kittipat1413/go-common/framework/errors
 ```
 
 ## Getting Started

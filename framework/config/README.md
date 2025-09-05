@@ -12,7 +12,7 @@ The config package provides a reusable and extensible configuration loader built
 
 ## Installation
 ```bash
-go get github.com/kittipat1413/go-common
+go get github.com/kittipat1413/go-common/framework/config
 ```
 
 ## Usage

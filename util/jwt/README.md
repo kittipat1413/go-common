@@ -8,7 +8,7 @@ JWT Manager provides a reusable and extensible interface for creating and valida
 
 ## Installation
 ```bash
-go get github.com/kittipat1413/go-common
+go get github.com/kittipat1413/go-common/util/jwt
 ```
 
 ## Usage

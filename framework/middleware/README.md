@@ -4,11 +4,6 @@
 # Middleware Package
 The middleware package provides reusable middleware components for Go web applications. These middlewares are designed to handle common application requirements, including request tracking, error recovery, logging, tracing, and failure handling.
 
-## Installation
-```bash
-go get github.com/kittipat1413/go-common
-```
-
 ## Features
 - **RequestID Middleware**: Generates and propagates a unique request ID for each HTTP request.
     - Adds the request ID to the context and response headers.

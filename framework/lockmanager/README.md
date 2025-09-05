@@ -14,9 +14,14 @@ The Lock Manager package provides a unified and extensible distributed locking i
   - **Auto Cleanup:** Locks are automatically cleaned up when ttl expires
 
 ## Installation
-```bash
-go get github.com/kittipat1413/go-common
-```
+- **LocalLock**
+	```bash
+	go get github.com/kittipat1413/go-common/framework/lockmanager/locallock
+	```
+- **Redsync**
+	```bash
+	go get github.com/kittipat1413/go-common/framework/lockmanager/redsync
+	```
 
 ## Usage
 Locking Interface
