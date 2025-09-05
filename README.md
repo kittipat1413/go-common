@@ -9,6 +9,7 @@
 Welcome to the **Common Backend Framework** repository! This project provides a collection of utilities, libraries, and frameworks designed to standardize and streamline the development of backend API services within our organization.
 
 - **Gitbook**: [https://kittipat1413.gitbook.io/go-common](https://kittipat1413.gitbook.io/go-common)
+- **Go Documentation**: [https://pkg.go.dev/github.com/kittipat1413/go-common](https://pkg.go.dev/github.com/kittipat1413/go-common)
 - **Github Repo**: [https://github.com/kittipat1413/go-common](https://github.com/kittipat1413/go-common)
 
 ## Introduction
