@@ -14,7 +14,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// redsyncLockManager implements locker.LockManager using go-redsync for distributed locking.
+// redsyncLockManager implements lockmanager.LockManager using go-redsync for distributed locking.
+// Provides Redis-based distributed mutex functionality with configurable retry behavior,
+// custom token generation, and automatic lock expiration.
 type redsyncLockManager struct {
 	rsync         *redsync.Redsync
 	genTokenFunc  func(key string) string
@@ -25,7 +27,20 @@ type redsyncLockManager struct {
 type Option func(*redsyncLockManager)
 
 // WithTokenGenerator sets a custom function for generating lock tokens based on the lock key.
+// Tokens are used to identify lock ownership and ensure only the lock holder can release it.
 // If not provided, a default XID-based generator will be used.
+//
+// Parameters:
+//   - f: Function that takes a lock key and returns a unique token
+//
+// Returns:
+//   - Option: Configuration option for the lock manager
+//
+// Example:
+//
+//	WithTokenGenerator(func(key string) string {
+//	    return fmt.Sprintf("service-a-%s-%d", key, time.Now().Unix())
+//	})
 func WithTokenGenerator(f func(key string) string) Option {
 	return func(r *redsyncLockManager) {
 		r.genTokenFunc = f
@@ -33,7 +48,21 @@ func WithTokenGenerator(f func(key string) string) Option {
 }
 
 // WithRedsyncOptions sets default options for all mutexes created by this LockManager.
-// These options apply to both Acquire and Release calls.
+// These options apply to both Acquire and Release calls, enabling consistent
+// behavior across all locks managed by this instance.
+//
+// Parameters:
+//   - opts: Redsync options to apply to all mutexes
+//
+// Returns:
+//   - Option: Configuration option for the lock manager
+//
+// Example:
+//
+//	WithRedsyncOptions(
+//	    redsync.WithTries(5),
+//	    redsync.WithRetryDelay(200*time.Millisecond),
+//	)
 func WithRedsyncOptions(opts ...redsync.Option) Option {
 	return func(r *redsyncLockManager) {
 		r.mutexDefaults = append(r.mutexDefaults, opts...)
@@ -41,7 +70,15 @@ func WithRedsyncOptions(opts ...redsync.Option) Option {
 }
 
 // NewRedsyncLockManager constructs a new distributed LockManager using go-redis as backend.
-// Optional configuration such as custom token generator and default mutex options can be provided.
+// The lock manager provides distributed mutex functionality across multiple Redis instances
+// with configurable retry behavior and token generation.
+//
+// Parameters:
+//   - redisClient: Redis client (single instance, cluster, or sentinel)
+//   - opts: Optional configuration for token generation and mutex behavior
+//
+// Returns:
+//   - lockmanager.LockManager: Configured distributed lock manager
 //
 // Example usage:
 //
@@ -80,8 +117,18 @@ func NewRedsyncLockManager(redisClient redis.UniversalClient, opts ...Option) lo
 }
 
 // Acquire attempts to obtain a distributed lock for the given key with a specified TTL.
+// The lock will automatically expire after the TTL duration to prevent deadlocks.
 // If a token is provided, it will be used as the lock identifier; otherwise, a token is auto-generated.
-// Returns the final lock token or ErrLockAlreadyTaken if the lock is held by another process.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout control
+//   - key: Unique identifier for the resource to lock
+//   - ttl: Time-to-live for the lock (automatic expiration)
+//   - token: Optional custom token (auto-generated if not provided)
+//
+// Returns:
+//   - string: Lock token for releasing the lock
+//   - error: ErrLockAlreadyTaken if lock is held by another process, or other acquisition errors
 func (r *redsyncLockManager) Acquire(ctx context.Context, key string, ttl time.Duration, token ...string) (string, error) {
 	var value string
 	if len(token) > 0 && token[0] != "" {
@@ -112,7 +159,16 @@ func (r *redsyncLockManager) Acquire(ctx context.Context, key string, ttl time.D
 }
 
 // Release releases the lock for the given key using the provided token.
-// If the token does not match the lock ownership, ErrUnlockNotPermitted is returned.
+// Only the process that holds the lock (matching token) can successfully release it.
+// If the lock has already expired, the operation is treated as successful.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout control
+//   - key: Unique identifier for the resource to unlock
+//   - token: Lock token returned from Acquire operation
+//
+// Returns:
+//   - error: ErrUnlockNotPermitted if token doesn't match lock ownership, nil on success
 func (r *redsyncLockManager) Release(ctx context.Context, key string, token string) error {
 	opts := append([]redsync.Option{}, r.mutexDefaults...)
 	opts = append(opts,

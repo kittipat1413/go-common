@@ -23,6 +23,11 @@ The Lock Manager package provides a unified and extensible distributed locking i
 	go get github.com/kittipat1413/go-common/framework/lockmanager/redsync
 	```
 
+## Documentation
+[![Go Reference](https://pkg.go.dev/badge/github.com/kittipat1413/go-common/framework/lockmanager.svg)](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/lockmanager)
+
+For detailed API documentation, examples, and usage patterns, visit the [Go Package Documentation](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/lockmanager).
+
 ## Usage
 Locking Interface
 The core of the package is the `LockManager` interface:

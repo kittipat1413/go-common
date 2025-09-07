@@ -16,28 +16,50 @@ const (
 
 // localLock represents a lock with an associated token and expiration time.
 type localLock struct {
-	token     string
-	expiresAt time.Time
+	token     string    // Unique identifier for lock ownership
+	expiresAt time.Time // When the lock automatically expires
 }
 
 // config contains configuration parameters for the localLockManager.
 type config struct {
-	cleanupInterval time.Duration
-	tokenGenerator  func(key string) string
+	cleanupInterval time.Duration           // How often to clean expired locks
+	tokenGenerator  func(key string) string // Function to generate lock tokens
 }
 
 // Option defines a functional option for customizing the localLockManager.
 type Option func(*config)
 
 // WithCleanupInterval sets the interval for cleaning up expired locks.
+//
+// Parameters:
+//   - interval: How often to run cleanup
+//
+// Returns:
+//   - Option: Configuration option for the lock manager
+//
+// Example:
+//
+//	WithCleanupInterval(10*time.Minute) // Clean up every 10 minutes
 func WithCleanupInterval(interval time.Duration) Option {
 	return func(c *config) {
 		c.cleanupInterval = interval
 	}
 }
 
-// WithTokenGenerator sets a custom token generator used during lock acquisition
-// when a token is not explicitly provided.
+// WithTokenGenerator sets a custom token generator for lock acquisition.
+// Used when no explicit token is provided during Acquire calls.
+//
+// Parameters:
+//   - f: Function that takes a lock key and returns a unique token
+//
+// Returns:
+//   - Option: Configuration option for the lock manager
+//
+// Example:
+//
+//	WithTokenGenerator(func(key string) string {
+//	    return fmt.Sprintf("process-%d-%s", os.Getpid(), key)
+//	})
 func WithTokenGenerator(f func(key string) string) Option {
 	return func(c *config) {
 		c.tokenGenerator = f
@@ -47,22 +69,28 @@ func WithTokenGenerator(f func(key string) string) Option {
 // localLockManager provides an in-memory, single-node implementation of the LockManager interface.
 // It supports TTL-based locking and periodic cleanup of expired locks.
 type localLockManager struct {
-	mu    sync.Mutex
-	locks map[string]localLock
-	cfg   config
-	done  chan struct{}
+	mu    sync.Mutex           // Protects the locks map
+	locks map[string]localLock // In-memory storage for active locks
+	cfg   config               // Configuration parameters
+	done  chan struct{}        // Signal channel for cleanup goroutine
 }
 
 // NewLocalLockManager creates a new local in-memory lock manager with optional configuration.
-// It is intended for single-node usage and should not be used in distributed systems.
+// Starts a background goroutine for periodic cleanup of expired locks.
+//
+// Parameters:
+//   - opts: Optional configuration functions
+//
+// Returns:
+//   - lockmanager.LockManager: Configured local lock manager
 //
 // Example usage:
 //
-//	locker := NewLocalLockManager(
-//		WithCleanupInterval(10*time.Minute),
-//		WithTokenGenerator(func(key string) string {
-//			return "custom-token-for:" + key
-//		}),
+//	locker := local.NewLocalLockManager(
+//	    local.WithCleanupInterval(10*time.Minute),
+//	    local.WithTokenGenerator(func(key string) string {
+//	        return "custom-token-for:" + key
+//	    }),
 //	)
 func NewLocalLockManager(opts ...Option) lockmanager.LockManager {
 	cfg := config{
@@ -131,7 +159,8 @@ func (m *localLockManager) Release(ctx context.Context, key string, token string
 	return nil
 }
 
-// Stop terminates the background cleanup goroutine.
+// Stop terminates the background cleanup goroutine and prevents memory leaks.
+// Should be called during application shutdown to clean up resources.
 func (m *localLockManager) Stop() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -144,7 +173,8 @@ func (m *localLockManager) Stop() {
 	}
 }
 
-// cleanupLoop starts a periodic task that deletes expired locks at the configured interval.
+// cleanupLoop runs a periodic task that deletes expired locks at the configured interval.
+// Runs in a separate goroutine to avoid blocking lock operations.
 func (m *localLockManager) cleanupLoop() {
 	ticker := time.NewTicker(m.cfg.cleanupInterval)
 	defer ticker.Stop()
@@ -159,7 +189,8 @@ func (m *localLockManager) cleanupLoop() {
 	}
 }
 
-// cleanupExpiredLocks removes all expired locks from the map.
+// cleanupExpiredLocks removes all expired locks from the map to prevent memory leaks.
+// Called periodically by the cleanup loop.
 func (m *localLockManager) cleanupExpiredLocks() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
