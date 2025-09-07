@@ -27,10 +27,12 @@ type traceOptions struct {
 // TraceOption specifies instrumentation configuration options.
 type TraceOption func(*traceOptions)
 
-// TraceFilter is a function that determines whether a request should be traced. It returns true if the request should be traced.
+// TraceFilter determines whether a request should be traced.
+// Returns true to create a span for the request, false to skip tracing entirely.
 type TraceFilter func(*http.Request) bool
 
-// SpanNameFormatter is used to set the span name based on the http.Request.
+// SpanNameFormatter generates custom span names based on HTTP request information.
+// Enables context-aware span naming for better trace organization and filtering.
 type SpanNameFormatter func(*http.Request) string
 
 // WithTracePropagators specifies propagators to use for extracting information from the HTTP requests.
@@ -42,7 +44,7 @@ func WithTracePropagators(propagators propagation.TextMapPropagator) TraceOption
 	}
 }
 
-// WithTracerProvider specifies a tracer provider to use for creating a tracer.
+// WithTracerProvider sets a custom tracer provider for span creation.
 func WithTracerProvider(provider oteltrace.TracerProvider) TraceOption {
 	return func(opts *traceOptions) {
 		if provider != nil {
@@ -51,7 +53,8 @@ func WithTracerProvider(provider oteltrace.TracerProvider) TraceOption {
 	}
 }
 
-// WithTraceFilter adds one or more filters to the list of filters used by the middleware.
+// WithTraceFilter adds request filters for selective tracing.
+// All filters must return true for a request to be traced.
 func WithTraceFilter(filters ...TraceFilter) TraceOption {
 	return func(opts *traceOptions) {
 		opts.filters = append(opts.filters, filters...)
@@ -65,8 +68,9 @@ func WithSpanNameFormatter(formatter SpanNameFormatter) TraceOption {
 	}
 }
 
-// Trace is a Gin middleware that integrates OpenTelemetry tracing into the request lifecycle.
-// The middleware creates a span for each incoming HTTP request and attaches it to the request context.
+// Trace returns Gin middleware that integrates OpenTelemetry distributed tracing.
+// Creates spans for HTTP requests, propagates trace context, and captures comprehensive
+// request attributes for distributed system observability and performance monitoring.
 //
 // The middleware performs the following actions:
 //  1. Initializes tracing options using the provided TraceOption functions or falls back to defaults.
@@ -82,18 +86,19 @@ func WithSpanNameFormatter(formatter SpanNameFormatter) TraceOption {
 //
 // Example Usage:
 //
-//	router.Use(
-//	    Trace(
-//	        WithTracerProvider(tracerProvider),
-//	        WithTracePropagators(propagators),
-//	        WithTraceFilter(func(req *http.Request) bool {
-//	            return req.Method != http.MethodOptions // Skip OPTIONS requests
-//	        }),
-//	        WithSpanNameFormatter(func(req *http.Request) string {
-//	            return fmt.Sprintf("CustomSpanName %s %s", req.Method, req.URL.Path)
-//	        }),
-//	    ),
-//	)
+//	// Basic usage with defaults
+//	router.Use(Trace())
+//
+//	// Custom configuration
+//	router.Use(Trace(
+//	    WithTracerProvider(myTracerProvider),
+//	    WithTraceFilter(func(req *http.Request) bool {
+//	        return req.URL.Path != "/health" // Skip health checks
+//	    }),
+//	    WithSpanNameFormatter(func(req *http.Request) string {
+//	        return fmt.Sprintf("api-service %s %s", req.Method, req.URL.Path)
+//	    }),
+//	))
 func Trace(options ...TraceOption) gin.HandlerFunc {
 	// Initialize default configuration.
 	opts := &traceOptions{}
@@ -167,7 +172,8 @@ func Trace(options ...TraceOption) gin.HandlerFunc {
 	}
 }
 
-// buildRequestAttributes builds a slice of attributes from the HTTP request for the span.
+// buildRequestAttributes constructs comprehensive HTTP span attributes following OpenTelemetry conventions.
+// Captures request metadata, network information, and client details for rich trace context.
 func buildRequestAttributes(c *gin.Context) []attribute.KeyValue {
 	// Determine the scheme (http or https).
 	scheme := "http"
@@ -229,7 +235,8 @@ func buildRequestAttributes(c *gin.Context) []attribute.KeyValue {
 	return attributes
 }
 
-// convertHTTPStatusToOtelCode converts an HTTP status code to an OpenTelemetry status code and description.
+// convertHTTPStatusToOtelCode maps HTTP status codes to OpenTelemetry status codes.
+// Follows OpenTelemetry HTTP semantic conventions for consistent error classification.
 func convertHTTPStatusToOtelCode(statusCode int) (codes.Code, string) {
 	if statusCode < 100 || statusCode >= 600 {
 		return codes.Error, fmt.Sprintf("Invalid HTTP status code %d", statusCode)

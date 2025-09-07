@@ -16,14 +16,16 @@ type recoveryOptions struct {
 // RecoveryOptions is a function that configures recoveryOptions.
 type RecoveryOption func(*recoveryOptions)
 
-// WithLogger sets a custom logger for the Recovery middleware.
+// WithRecoveryLogger sets a custom logger for panic recovery logging.
+// If not provided, the middleware retrieves a logger from the request context.
 func WithRecoveryLogger(logger common_logger.Logger) RecoveryOption {
 	return func(opts *recoveryOptions) {
 		opts.logger = logger
 	}
 }
 
-// WithRecoveryHandler sets a custom error handler for the Recovery middleware.
+// WithRecoveryHandler sets a custom error handler for panic responses.
+// Allows custom error formatting, additional context, or specialized error responses.
 func WithRecoveryHandler(handler func(c *gin.Context, err interface{})) RecoveryOption {
 	return func(opts *recoveryOptions) {
 		opts.handler = handler
@@ -98,7 +100,8 @@ func Recovery(opts ...RecoveryOption) gin.HandlerFunc {
 	}
 }
 
-// defaultRecoveryHandler is the default handler that returns a 500 status code with a generic error message.
+// defaultRecoveryHandler provides standard 500 error response for recovered panics.
+// Returns a generic error message without exposing internal panic details to clients.
 func defaultRecoveryHandler(c *gin.Context, _ interface{}) {
 	c.AbortWithStatusJSON(
 		http.StatusInternalServerError,

@@ -6,14 +6,22 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// DefaultMiddlewareConfig holds configuration options for the default middleware chain.
 type DefaultMiddlewareConfig struct {
-	Logger         common_logger.Logger
+	// Logger provides custom logging for recovery and request logging middleware.
+	// If nil, middleware will use default logger implementations.
+	Logger common_logger.Logger
+
+	// TracerProvider enables distributed tracing for request instrumentation.
+	// If nil, the global OpenTelemetry trace provider is used.
 	TracerProvider trace.TracerProvider
 }
 
-// ConfigureDefaultMiddlewares returns a slice of Gin handlers that constitute
-// a standardized "default" middleware chain for common features. These include:
+// ConfigureDefaultMiddlewares returns a standardized middleware chain for common HTTP concerns.
+// The chain includes recovery, circuit breaker, tracing, request ID, logging, and metrics
+// in an order optimized for proper request handling and observability.
 //
+// Middleware Chain:
 //   - Recovery: Recovers from panics and returns a 500 Internal Server Error response.
 //   - CircuitBreaker: Monitors request failures and may trip to protect the service.
 //   - Trace: Instruments incoming requests with OpenTelemetry spans if a TracerProvider is given.

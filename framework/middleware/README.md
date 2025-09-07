@@ -33,5 +33,12 @@ The middleware package provides reusable middleware components for Go web applic
     go get github.com/kittipat1413/go-common/framework/middleware/gin
     ```
 
+## Documentation
+- **Gin** <br/>
+
+    [![Go Reference](https://pkg.go.dev/badge/github.com/kittipat1413/go-common/framework/middleware/gin.svg)](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/middleware/gin)
+
+    For detailed API documentation, examples, and usage patterns, visit the [Go Package Documentation](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/middleware/gin).
+
 ## Examples
 - You can find a complete working example in the repository under [framework/middleware/example](example/).

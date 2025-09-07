@@ -10,17 +10,19 @@ import (
 
 // requestLoggerOptions holds configuration options for the RequestLogger middleware.
 type requestLoggerOptions struct {
-	logger  common_logger.Logger
-	filters []RequestLoggerFilter
+	logger  common_logger.Logger  // Custom logger instance (nil uses default)
+	filters []RequestLoggerFilter // Request filters for selective logging
 }
 
 // RequestLoggerOption is a function that configures requestLoggerOptions.
 type RequestLoggerOption func(*requestLoggerOptions)
 
-// RequestLoggerFilter is a function that determines whether a request should be logged. It returns true if the request should be logged.
+// RequestLoggerFilter determines whether a request should be logged.
+// Returns true to log the request, false to skip logging entirely.
 type RequestLoggerFilter func(*http.Request) bool
 
-// WithRequestLogger allows setting a custom logger for the request logger middleware.
+// WithRequestLogger sets a custom logger for the request logger middleware.
+// If not provided, the middleware uses the default logger from the logger package.
 func WithRequestLogger(logger common_logger.Logger) RequestLoggerOption {
 	return func(opts *requestLoggerOptions) {
 		if logger != nil {
@@ -29,15 +31,17 @@ func WithRequestLogger(logger common_logger.Logger) RequestLoggerOption {
 	}
 }
 
-// WithRequestLoggerFilter adds one or more filters to the list of filters used by the request logger middleware.
+// WithRequestLoggerFilter adds request filters for selective logging.
+// All filters must return true for a request to be logged.
 func WithRequestLoggerFilter(filters ...RequestLoggerFilter) RequestLoggerOption {
 	return func(opts *requestLoggerOptions) {
 		opts.filters = append(opts.filters, filters...)
 	}
 }
 
-// RequestLogger returns a Gin middleware that logs detailed information about HTTP requests and responses.
-// It also augments the logger with request-specific fields and stores it in the context for downstream handlers.
+// RequestLogger returns Gin middleware that logs detailed HTTP request and response information.
+// Captures comprehensive request metadata, measures response times, and injects an enhanced
+// logger with request context into the request for downstream handlers to use.
 //
 // Functionality:
 //   - Logs request details, such as method, route, query parameters, client IP, and user agent.

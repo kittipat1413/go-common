@@ -13,7 +13,8 @@ type requestIDKey struct{}
 // requestIDContextKey is the key for request ID values in context.
 var requestIDContextKey = &requestIDKey{}
 
-// GetRequestIDFromContext retrieves the request ID from the context.
+// GetRequestIDFromContext retrieves the request ID from the provided context.
+// Used by downstream handlers and middleware to access the request correlation ID.
 func GetRequestIDFromContext(ctx context.Context) (string, bool) {
 	requestID, ok := ctx.Value(requestIDContextKey).(string)
 	return requestID, ok
@@ -30,25 +31,51 @@ type requestIDOptions struct {
 	contextGenerator RequestIDContextGenerator // The function used to generate a new request ID based on the Gin context.
 }
 
-// requestIDGeneratorMode is an internal enum to track which generator we use.
+// requestIDGeneratorMode tracks which ID generator is configured.
+// Internal enum to handle different generator types consistently.
 type requestIDGeneratorMode int
 
 const (
-	generatorModeNone requestIDGeneratorMode = iota
-	generatorModeNoContext
-	generatorModeWithContext
+	generatorModeNone        requestIDGeneratorMode = iota // No generator set
+	generatorModeNoContext                                 // Simple generator without context
+	generatorModeWithContext                               // Context-aware generator
 )
 
-// RequestIDGenerator is a function type that generates a unique ID.
+// RequestIDGenerator generates unique request IDs without context dependencies.
+// Simple function type for stateless ID generation.
+//
+// Returns:
+//   - string: Unique request identifier
+//
+// Example:
+//
+//	func customGenerator() string {
+//	    return fmt.Sprintf("req-%d-%s", time.Now().Unix(), uuid.NewString())
+//	}
 type RequestIDGenerator func() string
 
-// RequestIDContextGenerator is a function type that generates a unique ID based on the Gin context.
+// RequestIDContextGenerator generates unique request IDs using Gin context information.
+// Enables context-aware ID generation based on request properties like headers, IP, etc.
+//
+// Parameters:
+//   - c: Gin context with request information
+//
+// Returns:
+//   - string: Unique request identifier
+//
+// Example:
+//
+//	func contextAwareGenerator(c *gin.Context) string {
+//	    userID := c.GetHeader("User-ID")
+//	    return fmt.Sprintf("user-%s-req-%s", userID, xid.New().String())
+//	}
 type RequestIDContextGenerator func(c *gin.Context) string
 
 // RequestIDOption is a function that configures the requestIDOptions.
 type RequestIDOption func(*requestIDOptions)
 
-// WithRequestIDHeader allows setting a custom header name for the request ID.
+// WithRequestIDHeader sets a custom HTTP header name for request ID extraction and injection.
+// Useful when integrating with systems that use different header conventions.
 func WithRequestIDHeader(headerName string) RequestIDOption {
 	return func(opts *requestIDOptions) {
 		if headerName != "" {
@@ -57,7 +84,8 @@ func WithRequestIDHeader(headerName string) RequestIDOption {
 	}
 }
 
-// WithRequestIDGenerator allows setting a custom ID generator function.
+// WithRequestIDGenerator sets a simple ID generator function without context dependencies.
+// Suitable for stateless ID generation using external libraries or custom algorithms.
 func WithRequestIDGenerator(gen RequestIDGenerator) RequestIDOption {
 	return func(opts *requestIDOptions) {
 		if gen != nil {
@@ -67,7 +95,8 @@ func WithRequestIDGenerator(gen RequestIDGenerator) RequestIDOption {
 	}
 }
 
-// WithRequestIDContextGenerator allows setting a custom ID generator function that uses the Gin context.
+// WithRequestIDContextGenerator sets a context-aware ID generator function.
+// Enables ID generation based on request properties like headers, user info, or route data.
 func WithRequestIDContextGenerator(gen RequestIDContextGenerator) RequestIDOption {
 	return func(opts *requestIDOptions) {
 		if gen != nil {
@@ -77,7 +106,9 @@ func WithRequestIDContextGenerator(gen RequestIDContextGenerator) RequestIDOptio
 	}
 }
 
-// RequestID returns a Gin middleware that injects a unique request ID into each HTTP request's context.
+// RequestID returns Gin middleware that manages unique request identifiers for HTTP requests.
+// Extracts existing request IDs from headers or generates new ones, then injects them into
+// the request context and response headers for distributed tracing and correlation.
 //
 // The middleware performs the following tasks:
 //  1. Extracts the request ID from the incoming request headers using the specified header name (default: "X-Request-ID").
@@ -155,7 +186,8 @@ func RequestID(opts ...RequestIDOption) gin.HandlerFunc {
 	}
 }
 
-// defaultRequestIDGenerator generates a unique request ID using the xid package.
+// defaultRequestIDGenerator creates unique request IDs using the XID library.
+// Generates compact, URL-safe, globally unique identifiers suitable for request correlation.
 func defaultRequestIDGenerator() string {
 	return xid.New().String()
 }

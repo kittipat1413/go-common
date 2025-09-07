@@ -11,25 +11,35 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// Global Prometheus metric collectors for HTTP request monitoring.
+// These metrics provide comprehensive observability into HTTP traffic patterns.
 var (
-	requestCount    *prometheus.CounterVec
-	requestDuration *prometheus.HistogramVec
-	requestSize     *prometheus.HistogramVec
-	responseSize    *prometheus.HistogramVec
+	requestCount    *prometheus.CounterVec   // Total number of HTTP requests
+	requestDuration *prometheus.HistogramVec // Request latency distribution in seconds
+	requestSize     *prometheus.HistogramVec // Request size distribution in bytes
+	responseSize    *prometheus.HistogramVec // Response size distribution in bytes
 
-	// for thread-safe initialization of Prometheus metrics
+	// prometheusInitOnce ensures thread-safe one-time initialization of metrics
 	prometheusInitOnce sync.Once
 )
 
 // initPrometheusMetrics sets up and registers Prometheus metrics with the provided namespace.
-// This function initializes the following metrics:
+// Creates four key HTTP metrics with consistent labeling for comprehensive request monitoring.
 //
-//   - requests_total: Counter for total HTTP requests.
-//   - request_duration_seconds: Histogram of request latencies.
-//   - request_size_bytes: Histogram of request sizes.
-//   - response_size_bytes: Histogram of response sizes.
+// Metrics Created:
+//   - {namespace}_requests_total: Counter for total HTTP requests
+//   - {namespace}_request_duration_seconds: Histogram of request latencies
+//   - {namespace}_request_size_bytes: Histogram of request sizes
+//   - {namespace}_response_size_bytes: Histogram of response sizes
 //
-// These metrics are labeled with HTTP status, method, and path.
+// All metrics are labeled with: status, method, path for detailed filtering and aggregation.
+//
+// Bucket Configuration:
+//   - Duration: Prometheus defaults (5ms to 10s) for typical web request latencies
+//   - Size: Exponential buckets (1KB to 16MB) for HTTP payload sizes
+//
+// Parameters:
+//   - namespace: Metric namespace prefix (typically service name)
 func initPrometheusMetrics(namespace string) {
 	labels := []string{"status", "method", "path"}
 
@@ -78,16 +88,21 @@ func initPrometheusMetrics(namespace string) {
 	prometheus.MustRegister(requestCount, requestDuration, requestSize, responseSize)
 }
 
-// Prometheus returns a Gin middleware that exports HTTP metrics to Prometheus.
+// Prometheus returns Gin middleware that collects HTTP metrics for Prometheus monitoring.
+// Captures request counts, latencies, and payload sizes with detailed labeling for
+// comprehensive HTTP traffic observability and performance monitoring.
 //
-// It captures the following metrics per request:
-//   - requests_total
-//   - request_duration_seconds
-//   - request_size_bytes
-//   - response_size_bytes
+// Collected Metrics:
+//   - Request count: Total requests segmented by status/method/path
+//   - Request duration: Latency histogram for performance monitoring
+//   - Request size: Payload size distribution for bandwidth analysis
+//   - Response size: Response payload size distribution
 //
 // Parameters:
-//   - serviceName: used as the namespace prefix for the exported metrics.
+//   - serviceName: Namespace prefix for metrics (empty string for no prefix)
+//
+// Returns:
+//   - gin.HandlerFunc: Middleware that captures metrics for each request
 //
 // Example:
 //
@@ -123,6 +138,11 @@ func Prometheus(serviceName string) gin.HandlerFunc {
 }
 
 // MetricsHandler exposes the Prometheus `/metrics` endpoint as a Gin handler.
+// Returns all registered metrics in Prometheus exposition format for scraping
+// by Prometheus servers or compatible monitoring systems.
+//
+// Returns:
+//   - gin.HandlerFunc: Handler that serves Prometheus metrics endpoint
 //
 // Example:
 //
@@ -131,8 +151,9 @@ func MetricsHandler() gin.HandlerFunc {
 	return gin.WrapH(promhttp.Handler())
 }
 
-// approximateRequestSize estimates the size in bytes of an incoming HTTP request.
-// It includes the request line, headers, and content length (if present).
+// approximateRequestSize estimates the total size of an HTTP request in bytes.
+// Includes request line (method + path + protocol), all headers, and content length.
+// Provides approximate sizing for bandwidth and payload monitoring.
 func approximateRequestSize(r *http.Request) int {
 	sz := len(r.Method) + len(r.URL.Path) + len(r.Proto) + len(r.Host)
 	for name, vals := range r.Header {

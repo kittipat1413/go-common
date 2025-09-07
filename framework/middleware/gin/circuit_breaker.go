@@ -29,7 +29,8 @@ func WithCircuitBreakerSettings(settings gobreaker.Settings) CircuitBreakerOptio
 	}
 }
 
-// WithCircuitBreakerStatusThreshold sets the status code threshold for error detection.
+// WithCircuitBreakerStatusThreshold sets the HTTP status code threshold for error detection.
+// HTTP responses with status codes >= threshold are considered failures.
 func WithCircuitBreakerStatusThreshold(threshold int) CircuitBreakerOption {
 	return func(opts *circuitBreakerOptions) {
 		opts.statusThreshold = threshold
@@ -43,7 +44,8 @@ func WithCircuitBreakerFilter(filters ...CircuitBreakerFilter) CircuitBreakerOpt
 	}
 }
 
-// WithCircuitBreakerErrorHandler sets a custom error handler for circuit breaker failures.
+// WithCircuitBreakerErrorHandler sets a custom error response handler for circuit breaker failures.
+// Called when circuit breaker is open and requests are being rejected.
 func WithCircuitBreakerErrorHandler(handler func(c *gin.Context)) CircuitBreakerOption {
 	return func(opts *circuitBreakerOptions) {
 		opts.onError = handler
@@ -130,7 +132,8 @@ func CircuitBreaker(opts ...CircuitBreakerOption) gin.HandlerFunc {
 	}
 }
 
-// defaultCircuitBreakerErrorHandler writes a default error response for circuit breaker failures.
+// defaultCircuitBreakerErrorHandler provides default error response for circuit breaker failures.
+// Returns 503 Service Unavailable with a descriptive message about temporary unavailability.
 func defaultCircuitBreakerErrorHandler(c *gin.Context) {
 	c.AbortWithStatusJSON(
 		http.StatusServiceUnavailable,
