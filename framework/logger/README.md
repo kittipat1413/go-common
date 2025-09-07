@@ -13,6 +13,10 @@ The logger package provides a structured, context-aware logging solution for Go 
 ```bash
 go get github.com/kittipat1413/go-common/framework/logger
 ```
+## Documentation
+[![Go Reference](https://pkg.go.dev/badge/github.com/kittipat1413/go-common/framework/logger.svg)](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/logger)
+
+For detailed API documentation, examples, and usage patterns, visit the [Go Package Documentation](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/logger).
 
 ## Features
 - **Structured Logging**: Outputs logs in JSON format, making them easy to parse and analyze.

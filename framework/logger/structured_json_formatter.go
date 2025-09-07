@@ -12,65 +12,119 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// Default JSON field keys for structured logging output.
+// These constants ensure consistent field naming across all log entries.
 const (
-	DefaultSJsonFmtTimestampKey  = "timestamp"
-	DefaultSJsonFmtSeverityKey   = "severity"
-	DefaultSJsonFmtMessageKey    = "message"
-	DefaultSJsonFmtErrorKey      = "error"
-	DefaultSJsonFmtTraceIDKey    = "trace_id"
-	DefaultSJsonFmtSpanIDKey     = "span_id"
-	DefaultSJsonFmtCallerKey     = "caller"
-	DefaultSJsonFmtCallerFuncKey = "function"
-	DefaultSJsonFmtCallerFileKey = "file"
-	DefaultSJsonFmtStackTraceKey = "stack_trace"
+	DefaultSJsonFmtTimestampKey  = "timestamp"   // Default key for the timestamp field in logs
+	DefaultSJsonFmtSeverityKey   = "severity"    // Default key for the severity field in logs
+	DefaultSJsonFmtMessageKey    = "message"     // Default key for the message field in logs
+	DefaultSJsonFmtErrorKey      = "error"       // Default key for the error field in logs
+	DefaultSJsonFmtTraceIDKey    = "trace_id"    // Default key for the trace_id field in logs
+	DefaultSJsonFmtSpanIDKey     = "span_id"     // Default key for the span_id field in logs
+	DefaultSJsonFmtCallerKey     = "caller"      // Default key for the caller field in logs
+	DefaultSJsonFmtCallerFuncKey = "function"    // Default key for the function field in logs
+	DefaultSJsonFmtCallerFileKey = "file"        // Default key for the file field in logs
+	DefaultSJsonFmtStackTraceKey = "stack_trace" // Default key for the stack_trace field in logs
 )
 
+// defaultSJsonFmtSkipPackages defines packages to exclude from caller detection.
+// These are internal packages that should not appear as the "caller" in logs.
 var defaultSJsonFmtSkipPackages = []string{
 	"github.com/sirupsen/logrus",
 	"github.com/kittipat1413/go-common/framework/logger",
 }
 
-/*
-StructuredJSONFormatter is a custom logrus formatter for structured JSON logs.
-It includes the following fields:
-  - timestamp: The log timestamp in the specified format.
-  - severity: The log severity level (e.g., info, debug, error).
-  - message: The log message.
-  - error: The error message if present.
-  - trace_id: The trace ID if available.
-  - span_id: The span ID if available.
-  - caller: The caller's function name, file, and line number.
-  - stack_trace: The stack trace for error levels.
-*/
+// StructuredJSONFormatter is a custom logrus formatter for structured JSON logs.
+// Produces consistent JSON output with trace correlation, caller information,
+// and configurable field key formatting suitable for log aggregation systems.
+//
+// JSON output includes:
+//   - timestamp: RFC3339 formatted time
+//   - severity: log level (debug, info, warn, error, fatal)
+//   - message: log message text
+//   - error: error details for Error/Fatal levels
+//   - trace_id: distributed trace correlation (if available in context)
+//   - span_id: span correlation within traces (if available)
+//   - caller: source location (function, file, line)
+//   - stack_trace: call stack for Error/Fatal levels
+//
+// Example JSON output:
+//
+//	{
+//	  "timestamp": "2023-01-01T12:00:00Z",
+//	  "severity": "info",
+//	  "message": "User logged in",
+//	  "user_id": 123,
+//	  "trace_id": "abc123...",
+//	  "span_id": "def456...",
+//	  "caller": {
+//	    "function": "main.handleLogin",
+//	    "file": "/app/handlers.go:45"
+//	  },
+//	  "stack_trace": "..." // Only for error/fatal levels
+//	}
 type StructuredJSONFormatter struct {
-	// TimestampFormat sets the format used for marshaling timestamps.
+	// TimestampFormat specifies the time format for log timestamps.
+	// Defaults to time.RFC3339 if not specified.
 	TimestampFormat string
-	// PrettyPrint will indent all JSON logs.
+
+	// PrettyPrint enables JSON indentation for human-readable output.
 	PrettyPrint bool
-	// SkipPackages is a list of packages to skip when searching for the caller.
+
+	// SkipPackages contains additional package prefixes to exclude from caller detection.
+	// Combined with defaultSJsonFmtSkipPackages for comprehensive filtering.
 	SkipPackages []string
-	// FieldKeyFormatter is a function type that allows users to customize log field keys.
+
+	// FieldKeyFormatter allows customization of JSON field keys.
+	// If nil, NoopFieldKeyFormatter is used (no transformation).
 	FieldKeyFormatter FieldKeyFormatter
 }
 
-/*
-FieldKeyFormatter is a function type that allows users to customize the keys of log fields.
-
-Example usage:
-
-	customFieldKeyFormatter := func(key string) string {
-		return strings.ToUpper(key)
-	}
-*/
+// FieldKeyFormatter defines a function type for customizing JSON field keys.
+// Enables consistent field naming conventions across different logging contexts.
+//
+// Parameters:
+//   - key: Original field key
+//
+// Returns:
+//   - string: Transformed field key
+//
+// Example:
+//
+//	customFieldKeyFormatter := func(key string) string {
+//		switch key {
+//		case DefaultEnvironmentKey:
+//			return "env"
+//		case DefaultServiceNameKey:
+//			return "service"
+//		case DefaultSJsonFmtSeverityKey:
+//			return "level"
+//		default:
+//			return key
+//		}
+//	}
 type FieldKeyFormatter func(key string) string
 
-// NoopFieldKeyFormatter is the default implementation of FieldKeyFormatter.
-// It returns the key unchanged, effectively performing no operation on the key.
+// NoopFieldKeyFormatter is the default field key formatter that performs no transformation.
+// Returns the original key unchanged, suitable when no key customization is needed.
 func NoopFieldKeyFormatter(defaultKey string) string {
 	return defaultKey
 }
 
-// Format implements the logrus.Formatter interface.
+// Format implements the logrus.Formatter interface for JSON log formatting.
+// Produces structured JSON output with all configured fields including
+// timestamps, trace IDs, caller information, and custom fields.
+//
+// Parameters:
+//   - entry: logrus.Entry containing log data and context
+//
+// Returns:
+//   - []byte: Formatted JSON log entry with newline
+//   - error: JSON marshaling error if formatting fails
+//
+// Example Output:
+//
+//	{"timestamp":"2023-01-01T12:00:00Z","severity":"info","message":"test","trace_id":"abc123"}
 func (f *StructuredJSONFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	// Use the default field key formatter if not provided.
 	if f.FieldKeyFormatter == nil {
@@ -153,7 +207,8 @@ func (f *StructuredJSONFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return append(serialized, '\n'), nil
 }
 
-// extractTraceIDs retrieves the trace and span IDs from the context.
+// extractTraceIDs retrieves OpenTelemetry trace and span IDs from context.
+// Returns nil values if no valid span is found in the context.
 func extractTraceIDs(ctx context.Context) (*string, *string) {
 	span := trace.SpanFromContext(ctx)
 	if !span.SpanContext().IsValid() {
@@ -172,7 +227,8 @@ func extractTraceIDs(ctx context.Context) (*string, *string) {
 	return &traceID, &spanID
 }
 
-// getStackTrace retrieves the current stack trace.
+// getStackTrace captures the current goroutine's stack trace with dynamic buffer sizing.
+// Uses progressively larger buffers to handle stack traces of varying sizes efficiently.
 func getStackTrace() string {
 	bufSize := 1024
 	maxBufSize := 32 * 1024 // 32 KB upper limit
@@ -192,8 +248,8 @@ func getStackTrace() string {
 	return string(buf[:n])
 }
 
-// getCaller retrieves the caller's function name, file, and line number,
-// skipping frames from the specified packages.
+// getCaller identifies the source location that triggered the log entry.
+// Skips internal logging packages to find the actual application caller.
 func getCaller(skipPackages []string) (function string, file string, line int) {
 	const maxDepth = 25
 	pcs := make([]uintptr, maxDepth)
