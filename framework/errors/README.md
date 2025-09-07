@@ -17,6 +17,11 @@ The errors package provides a centralized error handling library for Go applicat
 go get github.com/kittipat1413/go-common/framework/errors
 ```
 
+## Documentation
+[![Go Reference](https://pkg.go.dev/badge/github.com/kittipat1413/go-common/framework/errors.svg)](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/errors)
+
+For detailed API documentation, examples, and usage patterns, visit the [Go Package Documentation](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/errors).
+
 ## Getting Started
 
 ### Setting the Service Prefix
@@ -278,6 +283,9 @@ Defined categories and their descriptions:
 
 ## Examples
 You can find a complete working example in the repository under [framework/errors/example](example/).
+
+## Real-World Examples
+**[Ticket Reservation System](https://github.com/kittipat1413/ticket-reservation)** - A complete microservice demonstrating error handling patterns, HTTP middleware integration, and domain-specific error types.
 
 ## Best Practices
 - **Consistency**: Always define error codes and messages in a centralized place to maintain consistency.

@@ -21,7 +21,8 @@ func NewInternalServerError(message string, data interface{}) error {
 }
 
 // As checks if the error can be assigned to the target interface.
-// It supports both pointer and non-pointer types for the target.
+// Supports both pointer (**InternalServerError) and value (*InternalServerError) targets
+// for compatibility with Go's errors.As function.
 func (e *InternalServerError) As(target interface{}) bool {
 	if target == nil {
 		return false
@@ -60,7 +61,8 @@ func NewDatabaseError(message string, data interface{}) error {
 }
 
 // As checks if the error can be assigned to the target interface.
-// It supports both pointer and non-pointer types for the target.
+// Supports both pointer (**DatabaseError) and value (*DatabaseError) targets
+// for compatibility with Go's errors.As function.
 func (e *DatabaseError) As(target interface{}) bool {
 	if target == nil {
 		return false
@@ -99,7 +101,8 @@ func NewThirdPartyError(message string, data interface{}) error {
 }
 
 // As checks if the error can be assigned to the target interface.
-// It supports both pointer and non-pointer types for the target.
+// Supports both pointer (**ThirdPartyError) and value (*ThirdPartyError) targets
+// for compatibility with Go's errors.As function.
 func (e *ThirdPartyError) As(target interface{}) bool {
 	if target == nil {
 		return false
@@ -138,7 +141,8 @@ func NewServiceUnavailableError(message string, data interface{}) error {
 }
 
 // As checks if the error can be assigned to the target interface.
-// It supports both pointer and non-pointer types for the target.
+// Supports both pointer (**ServiceUnavailableError) and value (*ServiceUnavailableError) targets
+// for compatibility with Go's errors.As function.
 func (e *ServiceUnavailableError) As(target interface{}) bool {
 	if target == nil {
 		return false

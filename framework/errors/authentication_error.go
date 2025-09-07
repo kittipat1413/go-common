@@ -21,7 +21,8 @@ func NewAuthenticationError(message string, data interface{}) error {
 }
 
 // As checks if the error can be assigned to the target interface.
-// It supports both pointer and non-pointer types for the target.
+// Supports both pointer (**AuthenticationError) and value (*AuthenticationError) targets
+// for compatibility with Go's errors.As function.
 func (e *AuthenticationError) As(target interface{}) bool {
 	if target == nil {
 		return false
@@ -60,7 +61,8 @@ func NewUnauthorizedError(message string, data interface{}) error {
 }
 
 // As checks if the error can be assigned to the target interface.
-// It supports both pointer and non-pointer types for the target.
+// Supports both pointer (**UnauthorizedError) and value (*UnauthorizedError) targets
+// for compatibility with Go's errors.As function.
 func (e *UnauthorizedError) As(target interface{}) bool {
 	if target == nil {
 		return false
@@ -99,7 +101,8 @@ func NewForbiddenError(message string, data interface{}) error {
 }
 
 // As checks if the error can be assigned to the target interface.
-// It supports both pointer and non-pointer types for the target.
+// Supports both pointer (**ForbiddenError) and value (*ForbiddenError) targets
+// for compatibility with Go's errors.As function.
 func (e *ForbiddenError) As(target interface{}) bool {
 	if target == nil {
 		return false

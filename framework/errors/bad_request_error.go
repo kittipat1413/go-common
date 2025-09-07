@@ -21,7 +21,8 @@ func NewClientError(message string, data interface{}) error {
 }
 
 // As checks if the error can be assigned to the target interface.
-// It supports both pointer and non-pointer types for the target.
+// Supports both pointer (**ClientError) and value (*ClientError) targets
+// for compatibility with Go's errors.As function.
 func (e *ClientError) As(target interface{}) bool {
 	if target == nil {
 		return false
@@ -60,7 +61,8 @@ func NewBadRequestError(message string, data interface{}) error {
 }
 
 // As checks if the error can be assigned to the target interface.
-// It supports both pointer and non-pointer types for the target.
+// Supports both pointer (**BadRequestError) and value (*BadRequestError) targets
+// for compatibility with Go's errors.As function.
 func (e *BadRequestError) As(target interface{}) bool {
 	if target == nil {
 		return false
@@ -99,7 +101,8 @@ func NewNotFoundError(message string, data interface{}) error {
 }
 
 // As checks if the error can be assigned to the target interface.
-// It supports both pointer and non-pointer types for the target.
+// Supports both pointer (**NotFoundError) and value (*NotFoundError) targets
+// for compatibility with Go's errors.As function.
 func (e *NotFoundError) As(target interface{}) bool {
 	if target == nil {
 		return false
@@ -138,7 +141,8 @@ func NewConflictError(message string, data interface{}) error {
 }
 
 // As checks if the error can be assigned to the target interface.
-// It supports both pointer and non-pointer types for the target.
+// Supports both pointer (**ConflictError) and value (*ConflictError) targets
+// for compatibility with Go's errors.As function.
 func (e *ConflictError) As(target interface{}) bool {
 	if target == nil {
 		return false
@@ -177,7 +181,8 @@ func NewUnprocessableEntityError(message string, data interface{}) error {
 }
 
 // As checks if the error can be assigned to the target interface.
-// It supports both pointer and non-pointer types for the target.
+// Supports both pointer (**UnprocessableEntityError) and value (*UnprocessableEntityError) targets
+// for compatibility with Go's errors.As function.
 func (e *UnprocessableEntityError) As(target interface{}) bool {
 	if target == nil {
 		return false
