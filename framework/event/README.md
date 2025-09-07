@@ -17,6 +17,11 @@ The Event Package provides a robust framework for handling event messages in Go 
 - **Modular Design:** Separates event message logic, event handler logic, and HTTP integration for clean and maintainable code.
 - **HTTP Integration:** Includes helper functions for integrating with popular web frameworks like Gin.
 
+## Documentation
+[![Go Reference](https://pkg.go.dev/badge/github.com/kittipat1413/go-common/framework/event.svg)](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/event)
+
+For detailed API documentation, examples, and usage patterns, visit the [Go Package Documentation](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/event).
+
 ## Usage
 
 ### Defining Event Messages

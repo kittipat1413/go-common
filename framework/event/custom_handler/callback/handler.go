@@ -17,29 +17,48 @@ import (
 	[]TODO if client is nil; use default http.Client from another common package
 */
 
+// Default configuration values for callback behavior
 const (
-	defaultCallbackTimeout = 60 * time.Second
-	defaultMaxRetries      = 3 // initial attempt + 3 retries
-	defaultRetryInterval   = 2 * time.Second
+	defaultCallbackTimeout = 60 * time.Second // Maximum time for callback request
+	defaultMaxRetries      = 3                // Initial attempt + 3 retries
+	defaultRetryInterval   = 2 * time.Second  // Delay between retry attempts
 )
 
-// callbackConfig contains the configuration for sending callbacks
+// callbackConfig holds configuration for HTTP callback behavior including
+// retry strategy and timeout settings.
 type callbackConfig struct {
-	retrier         retry.Retrier
-	callbackTimeout time.Duration
+	retrier         retry.Retrier // Retry strategy for failed callbacks
+	callbackTimeout time.Duration // Timeout for individual callback requests
 }
 
-// callbackEventHandler is an EventHandler that sends callbacks based on the success or failure of an event
+// callbackEventHandler implements EventHandler[T] with HTTP callback functionality.
+// Sends success or failure callbacks based on event processing results with
+// configurable retry behavior and timeout handling.
 type callbackEventHandler[T any] struct {
-	httpClient     *http.Client
-	callbackConfig callbackConfig
-	logger         common_logger.Logger
+	httpClient     *http.Client         // HTTP client for callback requests
+	callbackConfig callbackConfig       // Callback retry and timeout configuration
+	logger         common_logger.Logger // Logger for callback operations
 }
 
-/*
-NewEventHandler creates a new event.EventHandler that sends callbacks based on the success or failure of an event.
-  - This handler supports internal logging; if a custom logger is provided via WithLogger, it will be used; otherwise, it will try to extract a logger from the context, and if none is found, a default logger will be used.
-*/
+// NewEventHandler creates a callback-enabled event handler that sends HTTP callbacks
+// based on event processing results.
+//
+// The handler supports custom logger configuration; if none provided, it extracts
+// logger from context or uses default logging.
+//
+// Parameters:
+//   - opts: Configuration options to customize behavior
+//
+// Returns:
+//   - event.EventHandler[T]: Configured callback event handler
+//
+// Example:
+//
+//	handler := NewEventHandler[UserData](
+//	    WithHTTPClient(customClient),
+//	    WithCallbackConfig(5, 3*time.Second, 30*time.Second),
+//	    WithLogger(customLogger),
+//	)
 func NewEventHandler[T any](opts ...Option[T]) event.EventHandler[T] {
 	// Create default fixed backoff strategy for callbacks
 	backoffStrategy, _ := retry.NewFixedBackoffStrategy(
@@ -69,10 +88,11 @@ func NewEventHandler[T any](opts ...Option[T]) event.EventHandler[T] {
 	return handler
 }
 
-// Option is a function that configures an EventHandler
+// Option is a function type for configuring the callback event handler.
 type Option[T any] func(*callbackEventHandler[T])
 
-// WithHTTPClient sets a custom http.Client
+// WithHTTPClient configures a custom HTTP client for callback requests.
+// Use to customize timeout, transport, or authentication settings.
 func WithHTTPClient[T any](client *http.Client) Option[T] {
 	return func(eh *callbackEventHandler[T]) {
 		if client != nil {
@@ -81,7 +101,8 @@ func WithHTTPClient[T any](client *http.Client) Option[T] {
 	}
 }
 
-// WithCallbackConfig sets the callback configuration using the retry library
+// WithCallbackConfig configures retry behavior and timeouts for callbacks.
+// Allows customization of retry attempts, intervals, and request timeouts.
 func WithCallbackConfig[T any](maxRetries int, retryInterval time.Duration, callbackTimeout time.Duration) Option[T] {
 	return func(eh *callbackEventHandler[T]) {
 		// Create fixed backoff strategy
@@ -108,7 +129,8 @@ func WithCallbackConfig[T any](maxRetries int, retryInterval time.Duration, call
 	}
 }
 
-// WithLogger sets a custom logger.Logger implementation for the EventHandler. If not provided, the logger will be extracted from the context or a default will be used.
+// WithLogger configures a custom logger for the event handler.
+// If not provided, logger will be extracted from context or use default.
 func WithLogger[T any](customLogger common_logger.Logger) Option[T] {
 	return func(eh *callbackEventHandler[T]) {
 		if customLogger != nil {
@@ -117,7 +139,26 @@ func WithLogger[T any](customLogger common_logger.Logger) Option[T] {
 	}
 }
 
-// UnmarshalEventMessage unmarshals the provided JSON data into a CallbackEventMessage.
+// UnmarshalEventMessage unmarshals JSON data into a CallbackEventMessage.
+// Handles conversion from raw JSON to typed event message with callback configuration.
+//
+// Expected JSON format includes callback URLs and event data:
+//
+//	{
+//	    "event_type": "user.created",
+//	    "payload": {...},
+//	    "callback": {
+//	        "success_url": "https://api.example.com/success",
+//	        "fail_url": "https://api.example.com/failure"
+//	    }
+//	}
+//
+// Parameters:
+//   - data: Raw JSON event data
+//
+// Returns:
+//   - event.EventMessage[T]: Typed event message with callback info
+//   - error: JSON unmarshaling error if data invalid
 func (eh *callbackEventHandler[T]) UnmarshalEventMessage(data []byte) (event.EventMessage[T], error) {
 	var msg CallbackEventMessage[T]
 	if err := json.Unmarshal(data, &msg); err != nil {
@@ -132,8 +173,9 @@ func (eh *callbackEventHandler[T]) BeforeHandle(ctx context.Context, msg event.E
 	return nil
 }
 
-// AfterHandle performs post-processing after the event has been handled, including triggering
-// callbacks based on the result of the event handling.
+// AfterHandle performs post-processing including sending success/failure callbacks.
+// Runs after main event processing and sends appropriate HTTP callbacks based on
+// processing results. Callbacks are sent asynchronously with retry logic.
 func (eh *callbackEventHandler[T]) AfterHandle(ctx context.Context, msg event.EventMessage[T], eventResult error) error {
 	// Check if the event message includes callback information and handle the callback accordingly
 	if callbackMsg, ok := msg.(interface{ GetCallback() *CallbackInfo }); ok {
@@ -142,7 +184,8 @@ func (eh *callbackEventHandler[T]) AfterHandle(ctx context.Context, msg event.Ev
 	return nil
 }
 
-// HandleCallback handles the success and failure callback logic using the EventHandler's http.Client
+// handleCallback manages callback delivery logic based on event processing results.
+// Determines which callback URL to use and initiates asynchronous delivery.
 func (eh *callbackEventHandler[T]) handleCallback(ctx context.Context, err error, callback *CallbackInfo) {
 	if callback == nil {
 		return
@@ -168,7 +211,8 @@ func (eh *callbackEventHandler[T]) handleCallback(ctx context.Context, err error
 	}
 }
 
-// sendCallback sends a callback using the EventHandler's http.Client with retry logic
+// sendCallback delivers HTTP callback with retry logic and error handling.
+// Uses configured retry strategy with proper error classification for retry decisions.
 func (eh *callbackEventHandler[T]) sendCallback(ctx context.Context, url string) {
 	logger := eh.logger
 	if logger == nil {
@@ -200,18 +244,21 @@ func (eh *callbackEventHandler[T]) sendCallback(ctx context.Context, url string)
 	}
 }
 
-// CallbackHTTPError represents an HTTP error response
+// CallbackHTTPError represents HTTP-specific errors from callback requests.
+// Enables proper error classification for retry decisions.
 type CallbackHTTPError struct {
-	StatusCode int
-	Status     string
-	URL        string
+	StatusCode int    // HTTP status code from response
+	Status     string // HTTP status text
+	URL        string // Target URL that failed
 }
 
+// Error implements the error interface for CallbackHTTPError.
 func (e *CallbackHTTPError) Error() string {
 	return fmt.Sprintf("HTTP %d: %s for URL %s", e.StatusCode, e.Status, e.URL)
 }
 
-// makeCallbackRequest makes a single callback request
+// makeCallbackRequest performs a single HTTP GET callback request.
+// Handles HTTP communication with proper error handling and response consumption.
 func (eh *callbackEventHandler[T]) makeCallbackRequest(ctx context.Context, url string, logger common_logger.Logger) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
