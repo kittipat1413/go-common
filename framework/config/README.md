@@ -15,6 +15,11 @@ The config package provides a reusable and extensible configuration loader built
 go get github.com/kittipat1413/go-common/framework/config
 ```
 
+## Documentation
+[![Go Reference](https://pkg.go.dev/badge/github.com/kittipat1413/go-common/framework/config.svg)](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/config)
+
+For detailed API documentation, examples, and usage patterns, visit the [Go Package Documentation](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/config).
+
 ## Usage
 This is the simplest way to get started using `MustConfig` with some defaults:
 ```go

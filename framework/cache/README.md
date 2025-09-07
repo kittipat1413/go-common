@@ -13,6 +13,11 @@ The Cache Package provides a unified caching interface (`Cache[T]`) with support
     go get github.com/kittipat1413/go-common/framework/cache/localcache
     ```
 
+## Documentation
+[![Go Reference](https://pkg.go.dev/badge/github.com/kittipat1413/go-common/framework/cache.svg)](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/cache)
+
+For detailed API documentation, examples, and usage patterns, visit the [Go Package Documentation](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/cache).
+
 ## Usage
 ### Cache Interface
 The core of the cache package is the `Cache[T]` interface, which defines the methods that all cache implementations must provide:
