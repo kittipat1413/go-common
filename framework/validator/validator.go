@@ -100,14 +100,8 @@ var JSONTagNameFunc = func(fld reflect.StructField) string {
 	return name
 }
 
-// WithCustomValidator registers a custom validation rule with its translation.
-// Integrates custom business logic validation with internationalized error messages.
-//
-// Parameters:
-//   - cv: CustomValidator implementation providing validation logic and translations
-//
-// Returns:
-//   - ValidatorOption: Configuration option for validator setup
+// WithCustomValidator registers a custom validator along with its translation.
+// It uses the CustomValidator interface to get the tag, function, and translation details.
 func WithCustomValidator(cv CustomValidator) ValidatorOption {
 	return func(v *validator.Validate, translator ut.Translator) error {
 		// Register the custom validation function
