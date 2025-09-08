@@ -1,6 +1,6 @@
 module github.com/kittipat1413/go-common
 
-go 1.22.0
+go 1.24.4
 
 require (
 	github.com/gin-gonic/gin v1.10.0
@@ -9,7 +9,7 @@ require (
 	github.com/go-playground/validator/v10 v10.22.1
 	github.com/go-redis/redismock/v9 v9.2.0
 	github.com/go-redsync/redsync/v4 v4.13.0
-	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/prometheus/client_golang v1.22.0
@@ -24,7 +24,7 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.30.0
 	go.opentelemetry.io/otel/sdk v1.30.0
 	go.opentelemetry.io/otel/trace v1.32.0
-	golang.org/x/sync v0.10.0
+	golang.org/x/sync v0.16.0
 )
 
 require (
@@ -73,10 +73,10 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/arch v0.11.0 // indirect
-	golang.org/x/crypto v0.32.0 // indirect
-	golang.org/x/net v0.33.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/crypto v0.41.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241223144023-3abc09e42ca8 // indirect
 	google.golang.org/grpc v1.67.3 // indirect

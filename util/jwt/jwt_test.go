@@ -2,6 +2,10 @@ package jwt_test
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"testing"
 	"time"
 
@@ -9,26 +13,6 @@ import (
 	jwtutil "github.com/kittipat1413/go-common/util/jwt"
 	"github.com/stretchr/testify/require"
 )
-
-const validRSAPrivateKey = `
------BEGIN RSA PRIVATE KEY-----
-MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAJLUdIexw37HyzB5VUoi3pIqbVifyV/
-X6hl5DEY1vDRJFPpYSDngSPbwoBhzlhcYIMV0obyABs29AHDYd+rwDYWji62XaHGYBDGnKbhbDI1DMT
-9ynkd0x1coxA4xTO+v1S8WJvp02w6TB5trokLOayhKizHkNynqerMbM2JqV09rAgMBAAECgYAwxF273
-//lcOh8vh/k0rYH6A2PXOreaXE4aqr3+sr6trc/+uhqSKMTWZJi7KkSHJJt4rIBUKhx1u95i3wwzPBA
-SmBipwl3ScP/HqeGnFnwqh6YrPmdPH3mptUEzO8wf1WldJS6o60i4b62nGU9UAvS4iYFjYSUN37Y5dP
-S2+f5gQJBAOxm5hSVX4ppN0JSUDt4gr+P3RdmeQeBhw3F+OxIUI2TDQnzxAzo4BsGJovCYrTujrDoau
-4y/SK/7WZYFT6zvKsCQQCfAJc0No1mI2T2t2DtV0WuxDLt96Xlv/7VsHQcODMvl/Fy5/ClsYlz4eLTe
-vJTXFEtPI4FIKa3cKB2pQdKTThBAkA/CPUCug2+t21/prk0El8yuyal7bIJ+VTMrGRChMnN5k8Mv04g
-bxwKuKogjBWLzyyHKYIRv9DVqj2gE46eqIh/AkAUnW39PgltMa+YcUQm4YbOVu/HfLFMrWzr5bnYIs0
-4IXoTjNDdmrwYgzP2eV1Lw49ezxgWwBn9dKPJXjIoxwRBAkEAqeNVOd8gQDo3ZnLuWSDkT5a/8g2VaW
-jrgnJmLKDLFWYjIpXQ1TxfluFSDQRPW4yzcWEULI2Jk0uGPG+NeAIMUg==
------END RSA PRIVATE KEY-----
-`
-const invalidRSAPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
-INVALID-PEM
------END RSA PRIVATE KEY-----
-`
 
 type CustomClaims struct {
 	jwt.RegisteredClaims
@@ -63,7 +47,7 @@ func TestJWTManager(t *testing.T) {
 		})
 
 		t.Run("RS256 Success", func(t *testing.T) {
-			mgr, err := jwtutil.NewJWTManager(jwtutil.RS256, []byte(validRSAPrivateKey))
+			mgr, err := jwtutil.NewJWTManager(jwtutil.RS256, mustGenRSAPrivateKeyPEM(t, 2048))
 			require.NoError(t, err)
 			require.NotNil(t, mgr)
 		})
@@ -90,7 +74,7 @@ func TestJWTManager(t *testing.T) {
 		})
 
 		t.Run("RS256 Success", func(t *testing.T) {
-			rsManager, err := jwtutil.NewJWTManager(jwtutil.RS256, []byte(validRSAPrivateKey))
+			rsManager, err := jwtutil.NewJWTManager(jwtutil.RS256, mustGenRSAPrivateKeyPEM(t, 2048))
 			require.NoError(t, err)
 			require.NotNil(t, rsManager)
 
@@ -105,7 +89,10 @@ func TestJWTManager(t *testing.T) {
 		})
 
 		t.Run("RS256 Invalid PEM", func(t *testing.T) {
-			rsManager, err := jwtutil.NewJWTManager(jwtutil.RS256, []byte(invalidRSAPrivateKey))
+			rsManager, err := jwtutil.NewJWTManager(jwtutil.RS256, []byte(`-----BEGIN RSA PRIVATE KEY-----
+INVALID-PEM
+-----END RSA PRIVATE KEY-----
+`))
 			require.NoError(t, err) // Manager is created, but real error occurs on create.
 
 			claims := &jwt.RegisteredClaims{
@@ -126,7 +113,7 @@ func TestJWTManager(t *testing.T) {
 		require.NotNil(t, hsManager)
 
 		// Setup RS256 manager
-		rsManager, err := jwtutil.NewJWTManager(jwtutil.RS256, []byte(validRSAPrivateKey))
+		rsManager, err := jwtutil.NewJWTManager(jwtutil.RS256, mustGenRSAPrivateKeyPEM(t, 2048))
 		require.NoError(t, err)
 		require.NotNil(t, rsManager)
 
@@ -193,13 +180,9 @@ func TestJWTManager(t *testing.T) {
 		})
 
 		t.Run("RS256 Invalid Token (bad signature)", func(t *testing.T) {
-			otherManager, err := jwtutil.NewJWTManager(jwtutil.RS256, []byte(`-----BEGIN RSA PRIVATE KEY-----
-MIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEAsCqGqHVfhADRMI05S2Lcl4VH7SFsnuq/fVbv1qW+N57ObX6jfxkWes1/7eYr
-EvxD5fJuIJeiSxG6jEG0+Dc2JwIDAQABAkANVjLalwQzqKItpEtlnybnG7J9y81+3HPBx+6hV+vmJvH1rkGrVhRa80XmwVCr8GdG8VCpFsaS
-1Jlk+d+aKWwFAiEA3tO+ziwIF8GI+9jkgWhBc4D345xd8wy9iXjUGTOGJWMCIQDKZHbHfdp/lh+N27jqErHF+s/+aLOTJK0VDf8idhT5bQIh
-AKLkPhbv31amd2JMcvca5MXwIMb2V0PHK4OkncByhv0rAiEAo252v+av3uEh/9JSwqlv5lf/RwfTIlm2bk8MHA7QJw0CIDP+JTqPFs2P7RSG
-o8LHst+W0b6dArnxPdzILlVMFbSD
------END RSA PRIVATE KEY-----`))
+			// otherManager uses a different 2048-bit key so signature won't match rsManager's key
+			otherKey := mustGenRSAPrivateKeyPEM(t, 2048)
+			otherManager, err := jwtutil.NewJWTManager(jwtutil.RS256, otherKey)
 			require.NoError(t, err) // Manager was created, actual error will be during parse
 
 			// Create a valid token from HS256 manager
@@ -227,7 +210,10 @@ o8LHst+W0b6dArnxPdzILlVMFbSD
 
 		t.Run("RS256 Invalid PEM when parsing", func(t *testing.T) {
 			// Manager with invalid PEM
-			rsInvalidManager, err := jwtutil.NewJWTManager(jwtutil.RS256, []byte(invalidRSAPrivateKey))
+			rsInvalidManager, err := jwtutil.NewJWTManager(jwtutil.RS256, []byte(`-----BEGIN RSA PRIVATE KEY-----
+INVALID-PEM
+-----END RSA PRIVATE KEY-----
+`))
 			require.NoError(t, err) // Manager was created, actual error will be during parse
 
 			claims := &jwt.RegisteredClaims{Issuer: "rs256-issuer-bad-pem"}
@@ -241,4 +227,13 @@ o8LHst+W0b6dArnxPdzILlVMFbSD
 			require.Contains(t, err.Error(), "invalid RSA private key")
 		})
 	})
+}
+
+// mustGenRSAPrivateKeyPEM returns a PEM-encoded RSA PRIVATE KEY with the given size.
+func mustGenRSAPrivateKeyPEM(t *testing.T, bits int) []byte {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, bits)
+	require.NoError(t, err)
+	keyBytes := x509.MarshalPKCS1PrivateKey(key)
+	return pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: keyBytes})
 }
