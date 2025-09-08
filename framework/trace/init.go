@@ -15,10 +15,37 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// DefaultTracer returns a tracer instance with this package's instrumentation scope.
+// Uses a consistent naming convention for spans created by this common library.
+//
+// Returns:
+//   - trace.Tracer: Tracer with package-specific instrumentation scope
+//
+// Example:
+//
+//	tracer := trace.DefaultTracer()
+//	ctx, span := tracer.Start(ctx, "operation-name")
+//	defer span.End()
 func DefaultTracer() trace.Tracer {
 	return otel.Tracer("github.com/kittipat1413/go-common/framework/trace")
 }
 
+// GetTracer returns a named tracer or the default tracer if name is empty.
+// Enables custom instrumentation scopes for different components or services.
+//
+// Parameters:
+//   - name: Custom instrumentation scope name (empty returns default tracer)
+//
+// Returns:
+//   - trace.Tracer: Named tracer instance
+//
+// Example:
+//
+//	// Custom tracer for specific component
+//	dbTracer := trace.GetTracer("database-operations")
+//
+//	// Default tracer when name is empty
+//	defaultTracer := trace.GetTracer("")
 func GetTracer(name string) trace.Tracer {
 	if name == "" {
 		return DefaultTracer()
@@ -26,27 +53,45 @@ func GetTracer(name string) trace.Tracer {
 	return otel.Tracer(name)
 }
 
+// ExporterType defines supported trace exporter backends.
+// Determines where trace data is sent for collection and analysis.
 type ExporterType string
 
 const (
-	ExporterStdout ExporterType = "stdout"
-	ExporterGRPC   ExporterType = "grpc"
+	ExporterStdout ExporterType = "stdout" // Console output for development and debugging
+	ExporterGRPC   ExporterType = "grpc"   // OTLP gRPC for production observability platforms
 )
 
-/*
-InitTracerProvider initializes an OpenTelemetry TracerProvider with the specified service name, exporter type, and gRPC endpoint (if needed).
-It supports both stdout and gRPC exporters and sets global tracing and propagation configurations.
-
-Params:
-  - ctx: Context for initialization, used for trace exporter creation and resource detection.
-  - serviceName: The name of the service being traced. Can be overridden by the environment variable `OTEL_SERVICE_NAME`.
-  - endpoint: The gRPC endpoint for trace exporters (only applicable for the gRPC exporter), the provided endpoint should be in the format "host:port" (e.g., "localhost:4317").
-  - exporterType: The type of exporter to use (either "stdout" or "grpc").
-
-Returns:
-  - *sdktrace.TracerProvider: A new tracer provider to manage tracing.
-  - error: An error if the initialization fails.
-*/
+// InitTracerProvider initializes OpenTelemetry tracing with configurable exporters and resource detection.
+// Sets up global tracer provider and propagators for distributed tracing across services.
+//
+// Initialization Process:
+//  1. Override serviceName with OTEL_SERVICE_NAME environment variable if present
+//  2. Create exporter based on exporterType
+//  3. Auto-detect system resources (OS, runtime, process information)
+//  4. Merge with default OpenTelemetry resource detection
+//  5. Configure tracer provider with batcher and resource attribution
+//  6. Set global tracer provider and W3C trace context propagation
+//
+// Resource Detection:
+//   - OS information (name, version, architecture)
+//   - Runtime details (Go version, process info)
+//   - Environment variables (OTEL_* configuration)
+//   - Service name and version identification
+//
+// Propagation:
+//   - W3C Trace Context for cross-service trace correlation
+//   - W3C Baggage for additional metadata propagation
+//
+// Parameters:
+//   - ctx: Context for exporter initialization and resource detection
+//   - serviceName: Service identifier for traces (overridden by OTEL_SERVICE_NAME)
+//   - endpoint: gRPC endpoint for OTLP exporter in "host:port" format (nil for stdout)
+//   - exporterType: Exporter backend type (stdout for dev, grpc for production)
+//
+// Returns:
+//   - *sdktrace.TracerProvider: Configured tracer provider for cleanup
+//   - error: Configuration or initialization error
 func InitTracerProvider(ctx context.Context, serviceName string, endpoint *string, exporterType ExporterType) (*sdktrace.TracerProvider, error) {
 	if envServiceName := os.Getenv("OTEL_SERVICE_NAME"); envServiceName != "" {
 		serviceName = envServiceName

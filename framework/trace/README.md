@@ -15,6 +15,11 @@ The trace package provides an easy-to-use utility for adding distributed tracing
 go get github.com/kittipat1413/go-common/framework/trace
 ```
 
+## Documentation
+[![Go Reference](https://pkg.go.dev/badge/github.com/kittipat1413/go-common/framework/trace.svg)](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/trace)
+
+For detailed API documentation, examples, and usage patterns, visit the [Go Package Documentation](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/trace).
+
 ## Usage
 ### 1. Initialize Tracer Provider
 To initialize the Tracer Provider, call `InitTracerProvider` with the service name and desired exporter:

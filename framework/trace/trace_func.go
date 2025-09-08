@@ -10,8 +10,38 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// TraceFunc traces the start and end of a function and returns its result.
-// It works with any function that returns a result and an error.
+// TraceFunc wraps function execution with OpenTelemetry tracing for automatic observability.
+// Creates spans with function names, records execution status, and captures errors with stack traces.
+// Uses Go generics to support any return type while maintaining type safety.
+//
+// Span Configuration:
+//   - Span Name: Extracted function name with common suffixes trimmed
+//   - Span Kind: Internal (function execution within service)
+//   - Error Recording: Stack traces included for failed operations
+//   - Status Codes: OK for success, Error for failures with descriptive messages
+//
+// Function Requirements:
+//   - Accept context.Context as first parameter
+//   - Return (T, error) where T is any type
+//
+// Tracer Fallback:
+//   - If tracer is nil, uses DefaultTracer() to ensure tracing always works
+//     even when not explicitly configured.
+//
+// Parameters:
+//   - ctx: Context for span creation and function execution
+//   - tracer: OpenTelemetry tracer (nil uses default tracer)
+//   - f: Function to trace following (ctx context.Context) (T, error) pattern
+//
+// Returns:
+//   - T: Function result of generic type T
+//   - error: Function error, nil on success
+//
+// Example Usage:
+//
+//	user, err := trace.TraceFunc(ctx, tracer, func(ctx context.Context) (*User, error) {
+//	    return userRepo.GetByID(ctx, userID)
+//	})
 func TraceFunc[T any](ctx context.Context, tracer trace.Tracer, f func(ctx context.Context) (T, error)) (T, error) {
 	if tracer == nil {
 		tracer = DefaultTracer()
