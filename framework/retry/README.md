@@ -14,6 +14,11 @@ The Retry Package provides a robust and extensible interface for automatically r
 go get github.com/kittipat1413/go-common/framework/retry
 ```
 
+## Documentation
+[![Go Reference](https://pkg.go.dev/badge/github.com/kittipat1413/go-common/framework/retry.svg)](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/retry)
+
+For detailed API documentation, examples, and usage patterns, visit the [Go Package Documentation](https://pkg.go.dev/github.com/kittipat1413/go-common/framework/retry).
+
 ## Usage
 ### 🧩 Interface
 ```go

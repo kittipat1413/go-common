@@ -9,16 +9,16 @@ import (
 
 //go:generate mockgen -source=./retry.go -destination=./mocks/retry.go -package=retry_mocks
 
-// ErrInvalidConfig is returned when the Retrier is misconfigured.
+// ErrInvalidConfig is returned when the Retrier configuration is invalid.
 var ErrInvalidConfig = errors.New("invalid retry configuration")
 
-// Config holds the retry settings.
+// Config holds retry configuration parameters including attempt limits and backoff behavior.
 type Config struct {
-	MaxAttempts int
-	Backoff     Strategy
+	MaxAttempts int      // Maximum number of retry attempts (must be >= 1)
+	Backoff     Strategy // Backoff strategy for calculating delays between retries
 }
 
-// Validate checks if the config is valid.
+// Validate checks if the retry configuration is valid and properly configured.
 func (c *Config) Validate() error {
 	if c.MaxAttempts < 1 {
 		return fmt.Errorf("%w: maxAttempts must be at least 1", ErrInvalidConfig)
@@ -33,17 +33,37 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// Retrier defines the interface for retrying operations.
+// Retrier defines the interface for executing operations with retry logic.
 type Retrier interface {
+	// ExecuteWithRetry attempts to execute a function with retry logic and context support.
 	ExecuteWithRetry(ctx context.Context, fn RetryFunc, retryOn RetryOnFunc) error
 }
 
-// retrier implements the Retrier interface.
+// retrier implements the Retrier interface with configurable retry behavior.
 type retrier struct {
-	config Config
+	config Config // Retry configuration including max attempts and backoff strategy
 }
 
-// NewRetrier creates a new Retrier with the given configuration.
+// NewRetrier creates a new Retrier with the specified configuration.
+// Validates configuration before creating the retrier instance to ensure proper setup.
+//
+// Parameters:
+//   - config: Retry configuration with max attempts and backoff strategy
+//
+// Returns:
+//   - Retrier: Configured retry instance
+//   - error: ErrInvalidConfig if configuration is invalid
+//
+// Example:
+//
+//	backoff, _ := NewFixedBackoffStrategy(2*time.Second)
+//	retrier, err := NewRetrier(Config{
+//	    MaxAttempts: 5,
+//	    Backoff:     backoff,
+//	})
+//	if err != nil {
+//	    log.Fatal("Failed to create retrier:", err)
+//	}
 func NewRetrier(config Config) (Retrier, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err // Already wrapped with ErrInvalidConfig
@@ -51,10 +71,25 @@ func NewRetrier(config Config) (Retrier, error) {
 	return &retrier{config: config}, nil
 }
 
-// RetryFunc is the function signature for retryable operations.
+// RetryFunc represents a function that can be retried on failure.
+// Should return nil on success or an error on failure that may trigger retry.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout control
+//
+// Returns:
+//   - error: nil on success, error on failure
 type RetryFunc func(ctx context.Context) error
 
-// RetryOnFunc is the function signature for retryable error checks.
+// RetryOnFunc determines whether a retry should be attempted based on the attempt and error.
+// Provides flexible control over retry conditions, allowing custom error classification.
+//
+// Parameters:
+//   - attempt: Current attempt number
+//   - err: Error from the failed operation
+//
+// Returns:
+//   - bool: true to retry the operation, false to stop and return the error
 type RetryOnFunc func(attempt int, err error) bool
 
 // ExecuteWithRetry attempts to execute the given function `fn` with retry logic.
