@@ -12,26 +12,36 @@ import (
 	enTranslations "github.com/go-playground/validator/v10/translations/en"
 )
 
-// Validator holds the validator and translator instances used for struct validation.
+// Validator wraps go-playground/validator with translation support for user-friendly error messages.
+// Provides struct validation with internationalized error messages and custom validation rules.
 type Validator struct {
-	validate   *validator.Validate
-	translator ut.Translator
+	validate   *validator.Validate // Underlying validator instance
+	translator ut.Translator       // Message translator for localized errors
 }
 
 // ValidatorOption defines a functional option for configuring the validator instance.
 type ValidatorOption func(*validator.Validate, ut.Translator) error
 
-// NewValidator creates and returns a new Validator instance with the provided options.
-// It initializes the validator, applies custom options, sets up the translator, and registers default translations.
+// NewValidator creates a configured Validator instance with English translations and custom options.
+// Initializes the underlying validator, sets up English locale translation, and applies custom configurations.
+//
+// Parameters:
+//   - opts: Optional configuration functions for custom validators and settings
+//
+// Returns:
+//   - *Validator: Configured validator instance ready for use
+//   - error: Initialization error if translator setup or custom options fail
 //
 // Example:
 //
-//	v, err := NewValidator(
+//	// Basic validator with defaults
+//	validator, err := NewValidator()
+//
+//	// Validator with JSON field names and custom validator
+//	validator, err := NewValidator(
+//	    WithTagNameFunc(JSONTagNameFunc),
 //	    WithCustomValidator(DateValidator{}),
 //	)
-//	if err != nil {
-//	    // handle error
-//	}
 func NewValidator(opts ...ValidatorOption) (*Validator, error) {
 	v := validator.New(validator.WithRequiredStructEnabled())
 
@@ -61,8 +71,19 @@ func NewValidator(opts ...ValidatorOption) (*Validator, error) {
 	}, nil
 }
 
-// WithTagNameFunc registers a custom function to derive field names in validation errors.
-// For example, you can use this to specify that validation errors should display `json` tag names.
+// WithTagNameFunc configures custom field name extraction for validation error messages.
+// Allows using struct tag values (like json, yaml, db) instead of struct field names in error messages.
+//
+// Parameters:
+//   - tagNameFunc: Function that extracts field names from struct field tags
+//
+// Returns:
+//   - ValidatorOption: Configuration option for validator setup
+//
+// Example:
+//
+//	// Use JSON tag names in error messages
+//	WithTagNameFunc(JSONTagNameFunc)
 func WithTagNameFunc(tagNameFunc func(fld reflect.StructField) string) ValidatorOption {
 	return func(v *validator.Validate, _ ut.Translator) error {
 		v.RegisterTagNameFunc(tagNameFunc)
@@ -79,8 +100,14 @@ var JSONTagNameFunc = func(fld reflect.StructField) string {
 	return name
 }
 
-// WithCustomValidator registers a custom validator along with its translation.
-// It uses the CustomValidator interface to get the tag, function, and translation details.
+// WithCustomValidator registers a custom validation rule with its translation.
+// Integrates custom business logic validation with internationalized error messages.
+//
+// Parameters:
+//   - cv: CustomValidator implementation providing validation logic and translations
+//
+// Returns:
+//   - ValidatorOption: Configuration option for validator setup
 func WithCustomValidator(cv CustomValidator) ValidatorOption {
 	return func(v *validator.Validate, translator ut.Translator) error {
 		// Register the custom validation function
