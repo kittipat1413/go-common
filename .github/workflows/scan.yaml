@@ -8,7 +8,7 @@ on:
     branches: 
       - main
 permissions:
-  contents: write
+  actions: read
 jobs:
   scan:
     name: scan
@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: checkout code
         uses: actions/checkout@v4
-      - name: Run Trivy vulnerability scanner in repo mode
+      - name: run Trivy vulnerability scanner in repo mode
         uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'fs'
@@ -24,7 +24,7 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'MEDIUM,HIGH,CRITICAL'
-      - name: Upload Trivy scan results to GitHub Security tab
+      - name: upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
