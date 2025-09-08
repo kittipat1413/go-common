@@ -11,17 +11,73 @@ import (
 	"github.com/kittipat1413/go-common/framework/logger"
 )
 
-// ShutdownTask represents a task to be executed during graceful shutdown
+// ShutdownTask represents a cleanup operation to execute during graceful shutdown.
+// Tasks are executed sequentially in the order they are provided to ensure
+// proper dependency management and resource cleanup ordering.
 type ShutdownTask struct {
-	Name string
-	Op   ShutdownOperation
+	Name string            // Human-readable task name for logging and debugging
+	Op   ShutdownOperation // Cleanup operation to execute
 }
 
-// ShutdownOperation defines a function type for shutdown operations
+// ShutdownOperation defines a cleanup function executed during graceful shutdown.
+// Should handle context cancellation and return quickly to avoid blocking shutdown.
+//
+// Parameters:
+//   - ctx: Context with shutdown timeout for cancellation control
+//
+// Returns:
+//   - error: nil on success, error details on failure (logged but doesn't stop shutdown)
+//
+// Example:
+//
+//	func closeDatabase(ctx context.Context) error {
+//	    return db.Close()
+//	}
 type ShutdownOperation func(ctx context.Context) error
 
-// GracefulShutdownSystem waits for OS signal or error then runs provided shutdown tasks in the given order
-// within the specified timeout. It returns a channel that's closed once all tasks complete or the timeout elapses.
+// GracefulShutdownSystem orchestrates graceful application shutdown with configurable cleanup tasks.
+// Monitors for OS signals (SIGINT/SIGTERM), internal errors, or context cancellation, then executes
+// shutdown tasks sequentially within the specified timeout to ensure clean resource cleanup.
+//
+// Shutdown Triggers:
+//   - OS Signals: SIGINT (Ctrl+C), SIGTERM (container/process manager)
+//   - Internal Errors: Application errors sent via errCh channel
+//   - Context Cancellation: Parent context cancellation
+//
+// Shutdown Process:
+//  1. Wait for shutdown trigger (signal, error, or context cancellation)
+//  2. Log shutdown initiation with trigger details
+//  3. Create timeout context for all cleanup operations
+//  4. Execute shutdown tasks sequentially in provided order
+//  5. Log each task's completion or failure (failures don't stop shutdown)
+//  6. Close done channel to signal shutdown completion
+//
+// Example Usage:
+//
+//	// Define cleanup tasks in dependency order
+//	shutdownTasks := []serverutils.ShutdownTask{
+//	    {Name: "HTTP Server", Op: func(ctx context.Context) error {
+//	        return server.Shutdown(ctx)
+//	    }},
+//	    {Name: "Database", Op: func(ctx context.Context) error {
+//	        return db.Close()
+//	    }},
+//	    {Name: "Cache", Op: func(ctx context.Context) error {
+//	        return cache.Close()
+//	    }},
+//	}
+//
+//	// Start graceful shutdown monitoring
+//	errCh := make(chan error, 1)
+//	done := serverutils.GracefulShutdownSystem(
+//	    ctx, logger, errCh, 30*time.Second, shutdownTasks,
+//	)
+//
+//	// Application runs here...
+//
+//	// Wait for shutdown completion
+//	<-done
+//	logger.Info(ctx, "Application shutdown completed", nil)
 func GracefulShutdownSystem(
 	ctx context.Context,
 	appLogger logger.Logger, // Logger for logging
