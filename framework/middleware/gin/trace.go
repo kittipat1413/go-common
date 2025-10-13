@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
-	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
@@ -162,7 +162,7 @@ func Trace(options ...TraceOption) gin.HandlerFunc {
 		code, description := convertHTTPStatusToOtelCode(statusCode)
 		span.SetStatus(code, description)
 		if statusCode > 0 {
-			span.SetAttributes(semconv.HTTPStatusCode(statusCode))
+			span.SetAttributes(semconv.HTTPResponseStatusCode(statusCode))
 		}
 
 		// Record any errors from the Gin context.
@@ -183,39 +183,39 @@ func buildRequestAttributes(c *gin.Context) []attribute.KeyValue {
 
 	// Initialize the attributes with common HTTP request attributes.
 	attributes := []attribute.KeyValue{
-		semconv.HTTPSchemeKey.String(scheme),
-		semconv.HTTPMethodKey.String(c.Request.Method),
+		semconv.URLSchemeKey.String(scheme),
+		semconv.HTTPRequestMethodKey.String(c.Request.Method),
 		semconv.HTTPRouteKey.String(c.FullPath()),
-		semconv.HTTPURLKey.String(c.Request.URL.String()),
-		semconv.HTTPTargetKey.String(c.Request.URL.Path),
-		semconv.NetHostNameKey.String(c.Request.Host),
+		semconv.URLFullKey.String(c.Request.URL.String()),
+		semconv.URLPathKey.String(c.Request.URL.Path),
+		semconv.ServerAddressKey.String(c.Request.Host),
 	}
 
 	// Add request content length if available.
 	if c.Request.ContentLength > 0 {
-		attributes = append(attributes, semconv.HTTPRequestContentLengthKey.Int64(c.Request.ContentLength))
+		attributes = append(attributes, semconv.HTTPRequestBodySizeKey.Int64(c.Request.ContentLength))
 	}
 
 	// Parse the Host header to get host and port.
 	if host, port, err := net.SplitHostPort(c.Request.Host); err == nil {
-		attributes = append(attributes, semconv.NetHostNameKey.String(host))
+		attributes = append(attributes, semconv.ServerAddressKey.String(host))
 		if portNum, err := strconv.Atoi(port); err == nil {
-			attributes = append(attributes, semconv.NetHostPortKey.Int(portNum))
+			attributes = append(attributes, semconv.ServerPortKey.Int(portNum))
 		}
 	} else {
 		// If unable to split, use the entire Host.
-		attributes = append(attributes, semconv.NetHostNameKey.String(c.Request.Host))
+		attributes = append(attributes, semconv.ServerAddressKey.String(c.Request.Host))
 	}
 
 	// Parse RemoteAddr to get client IP and port.
 	if ip, portStr, err := net.SplitHostPort(c.Request.RemoteAddr); err == nil {
-		attributes = append(attributes, semconv.NetSockPeerAddrKey.String(ip))
+		attributes = append(attributes, semconv.NetworkPeerAddressKey.String(ip))
 		if portNum, err := strconv.Atoi(portStr); err == nil {
-			attributes = append(attributes, semconv.NetSockPeerPortKey.Int(portNum))
+			attributes = append(attributes, semconv.NetworkPeerPortKey.Int(portNum))
 		}
 	} else {
 		// If unable to split, use the entire RemoteAddr.
-		attributes = append(attributes, semconv.NetSockPeerAddrKey.String(c.Request.RemoteAddr))
+		attributes = append(attributes, semconv.NetworkPeerAddressKey.String(c.Request.RemoteAddr))
 	}
 
 	// Add client IP address from X-Forwarded-For header if available.
@@ -224,7 +224,7 @@ func buildRequestAttributes(c *gin.Context) []attribute.KeyValue {
 		if idx := strings.Index(xForwardedFor, ","); idx >= 0 {
 			xForwardedFor = xForwardedFor[:idx]
 		}
-		attributes = append(attributes, semconv.HTTPClientIPKey.String(xForwardedFor))
+		attributes = append(attributes, semconv.ClientAddressKey.String(xForwardedFor))
 	}
 
 	// Add User-Agent header if available.

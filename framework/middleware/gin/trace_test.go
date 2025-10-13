@@ -16,7 +16,7 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
-	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
@@ -67,12 +67,12 @@ func TestTraceMiddleware_Default(t *testing.T) {
 	}
 
 	// Assert that specific attributes are set correctly.
-	assert.Equal(t, "http", attrMap[semconv.HTTPSchemeKey].AsString())
-	assert.Equal(t, "GET", attrMap[semconv.HTTPMethodKey].AsString())
+	assert.Equal(t, "http", attrMap[semconv.URLSchemeKey].AsString())
+	assert.Equal(t, "GET", attrMap[semconv.HTTPRequestMethodKey].AsString())
 	assert.Equal(t, "/test", attrMap[semconv.HTTPRouteKey].AsString())
-	assert.Equal(t, "/test", attrMap[semconv.HTTPURLKey].AsString())
-	assert.Equal(t, "/test", attrMap[semconv.HTTPTargetKey].AsString())
-	assert.Equal(t, "example.com", attrMap[semconv.NetHostNameKey].AsString())
+	assert.Equal(t, "/test", attrMap[semconv.URLFullKey].AsString())
+	assert.Equal(t, "/test", attrMap[semconv.URLPathKey].AsString())
+	assert.Equal(t, "example.com", attrMap[semconv.ServerAddressKey].AsString())
 }
 
 func TestTraceMiddleware_CustomSpanNameFormatter(t *testing.T) {
@@ -342,9 +342,9 @@ func TestTraceMiddleware_BuildRequestAttributes(t *testing.T) {
 	}
 
 	// Assert that specific attributes are set correctly.
-	assert.Equal(t, "http", attrMap[semconv.HTTPSchemeKey].AsString())
-	assert.Equal(t, "POST", attrMap[semconv.HTTPMethodKey].AsString())
+	assert.Equal(t, "http", attrMap[semconv.URLSchemeKey].AsString())
+	assert.Equal(t, "POST", attrMap[semconv.HTTPRequestMethodKey].AsString())
 	assert.Equal(t, "/test", attrMap[semconv.HTTPRouteKey].AsString())
 	assert.Equal(t, "TestAgent", attrMap[semconv.UserAgentOriginalKey].AsString())
-	assert.Equal(t, "1.2.3.4", attrMap[semconv.HTTPClientIPKey].AsString())
+	assert.Equal(t, "1.2.3.4", attrMap[semconv.ClientAddressKey].AsString())
 }
