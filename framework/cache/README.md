@@ -37,6 +37,10 @@ type Cache[T any] interface {
 - `InvalidateAll`: Clears all items from the cache.
 
 ## Local Cache Implementation
+
+<img width="293" height="247" alt="localcache" src="https://github.com/user-attachments/assets/4d66cad7-5c9b-49aa-9ab9-cc06df4b37f6" />
+<br/><br/>
+
 The `localcache` package provides an in-memory cache implementation of the `Cache[T]` interface. It stores items in memory with optional expiration times and supports automatic cleanup of expired items.
 
 ### Creating a Cache Instance
