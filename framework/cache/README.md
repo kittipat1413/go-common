@@ -31,8 +31,8 @@ type Cache[T any] interface {
     InvalidateAll(ctx context.Context) error
 }
 ```
-- `Get`: Retrieves a value from the cache. If the key is missing or expired, it uses the provided `Initializer` function to load the value.
-- `Set`: Manually sets a value in the cache with a specific expiration duration.
+- `Get`: Retrieves a value from the cache. If the key is missing or expired, it uses the provided `Initializer` function to load the value (if the `initializer` is `nil` and the key is missing, it returns `ErrCacheMiss`).
+- `Set`: Manually sets a value in the cache with a specific expiration duration (if duration is `nil`, the default expiration is used).
 - `Invalidate`: Removes a specific key from the cache.
 - `InvalidateAll`: Clears all items from the cache.
 
@@ -76,7 +76,7 @@ initializer := func() (string, *time.Duration, error) {
     return value, &duration, nil
 }
 
-// Get value from cache (will initialize if not present)
+// Get value from cache (or initialize if missing)
 value, err := c.Get(ctx, key, initializer)
 if err != nil {
     // Handle error
