@@ -25,23 +25,30 @@ const (
 )
 
 // CreateAuthHandler creates an appropriate authentication handler based on the auth config
-func CreateAuthHandler(username string, authConfig AuthConfig) (AuthenticationHandler, error) {
-	switch authConfig.Method {
+func CreateAuthHandler(authConfig AuthConfig) (AuthenticationHandler, error) {
+	// Merge with default config to ensure all fields are set
+	mergedConfig := mergeAuthConfig(DefaultConfig().Authentication, authConfig)
+	if err := validateAuthConfig(mergedConfig); err != nil {
+		return nil, err // errors are wrapped in validateConfig
+	}
+
+	// Create the appropriate authentication handler
+	switch mergedConfig.Method {
 	case AuthPassword:
-		if authConfig.Password == "" {
+		if mergedConfig.Password == "" {
 			return nil, fmt.Errorf("%w: password is required for password authentication", ErrAuthentication)
 		}
-		return NewPasswordAuthHandler(username, authConfig.Password), nil
+		return NewPasswordAuthHandler(mergedConfig.Username, mergedConfig.Password), nil
 
 	case AuthPrivateKey:
-		if len(authConfig.PrivateKeyData) > 0 {
-			return NewPrivateKeyAuthHandlerWithData(username, authConfig.PrivateKeyData, ""), nil
-		}
-		if authConfig.PrivateKeyPath == "" {
+		if len(mergedConfig.PrivateKeyData) == 0 && mergedConfig.PrivateKeyPath == "" {
 			return nil, fmt.Errorf("%w: private key path or data is required for private key authentication", ErrAuthentication)
 		}
-		return NewPrivateKeyAuthHandler(username, authConfig.PrivateKeyPath, ""), nil
-
+		if len(mergedConfig.PrivateKeyData) > 0 {
+			return NewPrivateKeyAuthHandlerWithData(mergedConfig.Username, mergedConfig.PrivateKeyData, ""), nil
+		} else {
+			return NewPrivateKeyAuthHandler(mergedConfig.Username, mergedConfig.PrivateKeyPath, ""), nil
+		}
 	default:
 		return nil, fmt.Errorf("%w: unsupported authentication method", ErrAuthentication)
 	}
