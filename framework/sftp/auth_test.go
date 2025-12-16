@@ -118,19 +118,23 @@ func TestCreateAuthHandler(t *testing.T) {
 	t.Run("TestCreateAuthHandlerFactory", func(t *testing.T) {
 		t.Run("Password Auth", func(t *testing.T) {
 			authConfig := sftp.AuthConfig{
+				Host:     "localhost",
+				Username: "testuser",
 				Method:   sftp.AuthPassword,
 				Password: "testpass",
 			}
-			handler, err := sftp.CreateAuthHandler("testuser", authConfig)
+			handler, err := sftp.CreateAuthHandler(authConfig)
 			require.NoError(t, err)
 			require.NotNil(t, handler)
 		})
 
 		t.Run("Password Auth Missing Password", func(t *testing.T) {
 			authConfig := sftp.AuthConfig{
-				Method: sftp.AuthPassword,
+				Host:     "localhost",
+				Username: "testuser",
+				Method:   sftp.AuthPassword,
 			}
-			handler, err := sftp.CreateAuthHandler("testuser", authConfig)
+			handler, err := sftp.CreateAuthHandler(authConfig)
 			require.Error(t, err)
 			require.Nil(t, handler)
 			require.ErrorAs(t, err, &sftp.ErrAuthentication)
@@ -138,9 +142,11 @@ func TestCreateAuthHandler(t *testing.T) {
 
 		t.Run("Private Key Auth Missing Key", func(t *testing.T) {
 			authConfig := sftp.AuthConfig{
-				Method: sftp.AuthPrivateKey,
+				Host:     "localhost",
+				Username: "testuser",
+				Method:   sftp.AuthPrivateKey,
 			}
-			handler, err := sftp.CreateAuthHandler("testuser", authConfig)
+			handler, err := sftp.CreateAuthHandler(authConfig)
 			require.Error(t, err)
 			require.Nil(t, handler)
 			require.ErrorAs(t, err, &sftp.ErrAuthentication)
@@ -149,20 +155,24 @@ func TestCreateAuthHandler(t *testing.T) {
 		t.Run("Private Key Auth With Key Data", func(t *testing.T) {
 			validPrivateKey := mustGenRSAPrivateKeyPEM(t, 2048)
 			authConfig := sftp.AuthConfig{
+				Host:           "localhost",
+				Username:       "testuser",
 				Method:         sftp.AuthPrivateKey,
 				PrivateKeyData: validPrivateKey,
 			}
-			handler, err := sftp.CreateAuthHandler("testuser", authConfig)
+			handler, err := sftp.CreateAuthHandler(authConfig)
 			require.NoError(t, err)
 			require.NotNil(t, handler)
 		})
 
 		t.Run("Private Key Auth With Key Path", func(t *testing.T) {
 			authConfig := sftp.AuthConfig{
+				Host:           "localhost",
+				Username:       "testuser",
 				Method:         sftp.AuthPrivateKey,
 				PrivateKeyPath: "/path/to/key",
 			}
-			handler, err := sftp.CreateAuthHandler("testuser", authConfig)
+			handler, err := sftp.CreateAuthHandler(authConfig)
 			require.NoError(t, err)
 			require.NotNil(t, handler)
 		})

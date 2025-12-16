@@ -39,9 +39,9 @@ type Client interface {
 
 // sftpClient is the concrete implementation of the Client interface
 type sftpClient struct {
-	config            Config
-	connectionManager ConnectionManager
 	authHandler       AuthenticationHandler
+	connectionManager ConnectionManager
+	transferConfig    TransferConfig
 	connected         bool
 }
 
@@ -54,21 +54,42 @@ func NewClient(config Config) (Client, error) {
 	}
 
 	// Create authentication handler
-	authHandler, err := CreateAuthHandler(mergedConfig.Username, mergedConfig.Authentication)
+	authHandler, err := CreateAuthHandler(mergedConfig.Authentication)
 	if err != nil {
 		return nil, err // errors are wrapped in CreateAuthHandler
 	}
 
 	// Create connection manager
-	connectionManager, err := NewConnectionManager(mergedConfig, authHandler)
+	connectionManager, err := NewConnectionManager(authHandler, mergedConfig.Authentication, mergedConfig.Connection)
 	if err != nil {
 		return nil, err // errors are wrapped in NewConnectionManager
 	}
 
+	return NewClientWithDependencies(authHandler, connectionManager, mergedConfig.Transfer)
+}
+
+// NewClientWithDependencies creates a new SFTP client with injected dependencies
+// This constructor is useful for testing or when you need more control over the
+// ConnectionManager and AuthenticationHandler implementations
+func NewClientWithDependencies(authHandler AuthenticationHandler, connectionManager ConnectionManager, transferConfig TransferConfig) (Client, error) {
+	// Validate dependencies
+	if connectionManager == nil {
+		return nil, fmt.Errorf("%w: connection manager cannot be nil", ErrConfiguration)
+	}
+	if authHandler == nil {
+		return nil, fmt.Errorf("%w: authentication handler cannot be nil", ErrConfiguration)
+	}
+
+	// Merge with defaults and validate transfer config
+	mergedTransferConfig := mergeTransferConfig(DefaultConfig().Transfer, transferConfig)
+	if err := validateTransferConfig(mergedTransferConfig); err != nil {
+		return nil, err
+	}
+
 	return &sftpClient{
-		config:            mergedConfig,
-		connectionManager: connectionManager,
 		authHandler:       authHandler,
+		connectionManager: connectionManager,
+		transferConfig:    mergedTransferConfig,
 		connected:         false,
 	}, nil
 }
@@ -170,9 +191,9 @@ func (c *sftpClient) Upload(ctx context.Context, localPath, remotePath string, o
 
 	// Apply options
 	config := &UploadConfig{
-		CreateDirs:          c.config.Transfer.CreateDirs,
-		PreservePermissions: c.config.Transfer.PreservePermissions,
-		ProgressCallback:    c.config.Transfer.ProgressCallback,
+		CreateDirs:          c.transferConfig.CreateDirs,
+		PreservePermissions: c.transferConfig.PreservePermissions,
+		ProgressCallback:    c.transferConfig.ProgressCallback,
 		OverwritePolicy:     OverwriteAlways,
 	}
 	for _, opt := range opts {
@@ -314,9 +335,9 @@ func (c *sftpClient) Download(ctx context.Context, remotePath, localPath string,
 
 	// Apply options
 	config := &DownloadConfig{
-		CreateDirs:          c.config.Transfer.CreateDirs,
-		PreservePermissions: c.config.Transfer.PreservePermissions,
-		ProgressCallback:    c.config.Transfer.ProgressCallback,
+		CreateDirs:          c.transferConfig.CreateDirs,
+		PreservePermissions: c.transferConfig.PreservePermissions,
+		ProgressCallback:    c.transferConfig.ProgressCallback,
 		OverwritePolicy:     OverwriteAlways,
 	}
 	for _, opt := range opts {
@@ -584,7 +605,7 @@ type ProgressCallback func(info ProgressInfo)
 
 // copyWithProgress copies data from src to dst with optional progress tracking
 func (c *sftpClient) copyWithProgress(src io.Reader, dst io.Writer, totalBytes int64, progressCallback ProgressCallback) error {
-	buffer := make([]byte, c.config.Transfer.BufferSize)
+	buffer := make([]byte, c.transferConfig.BufferSize)
 
 	var bytesTransferred int64
 	startTime := time.Now()

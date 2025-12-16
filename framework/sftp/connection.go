@@ -32,11 +32,12 @@ type pooledConnection struct {
 
 // connectionPool manages a pool of SFTP connections
 type connectionPool struct {
-	config      Config
-	authHandler AuthenticationHandler
-	connections []*pooledConnection
-	closed      bool
-	retrier     retry.Retrier
+	authConfig       AuthConfig
+	authHandler      AuthenticationHandler
+	connectionConfig ConnectionConfig
+	connections      []*pooledConnection
+	closed           bool
+	retrier          retry.Retrier
 
 	// Protects access to connections and closed flag
 	mutex sync.RWMutex
@@ -46,10 +47,14 @@ type connectionPool struct {
 }
 
 // NewConnectionManager creates a new connection manager with pooling support
-func NewConnectionManager(config Config, authHandler AuthenticationHandler) (ConnectionManager, error) {
-	// Merge with defaults and validate
-	mergedConfig := MergeConfig(config)
-	if err := validateConfig(mergedConfig); err != nil {
+func NewConnectionManager(authHandler AuthenticationHandler, authConfig AuthConfig, connectionConfig ConnectionConfig) (ConnectionManager, error) {
+	// Merge with default config to ensure all fields are set
+	mergedAuthConfig := mergeAuthConfig(DefaultConfig().Authentication, authConfig)
+	if err := validateAuthConfig(mergedAuthConfig); err != nil {
+		return nil, err // errors are wrapped in validateConfig
+	}
+	mergedConnectionConfig := mergeConnectionConfig(DefaultConfig().Connection, connectionConfig)
+	if err := validateConnectionConfig(mergedConnectionConfig); err != nil {
 		return nil, err // errors are wrapped in validateConfig
 	}
 
@@ -57,23 +62,24 @@ func NewConnectionManager(config Config, authHandler AuthenticationHandler) (Con
 		return nil, fmt.Errorf("%w: authentication handler cannot be nil", ErrConfiguration)
 	}
 
-	retrier, err := retry.NewRetrier(mergedConfig.Connection.RetryPolicy)
+	retrier, err := retry.NewRetrier(connectionConfig.RetryPolicy)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create retrier: %v", ErrConfiguration, err)
 	}
 
 	// Initialize connection pool
 	cp := &connectionPool{
-		config:      mergedConfig,
-		authHandler: authHandler,
-		connections: make([]*pooledConnection, 0, mergedConfig.Connection.MaxConnections),
-		closed:      false,
-		retrier:     retrier,
-		cleanupDone: make(chan struct{}),
+		authConfig:       mergedAuthConfig,
+		authHandler:      authHandler,
+		connectionConfig: mergedConnectionConfig,
+		connections:      make([]*pooledConnection, 0, mergedConnectionConfig.MaxConnections),
+		closed:           false,
+		retrier:          retrier,
+		cleanupDone:      make(chan struct{}),
 	}
 
 	// Auto-start cleanup routine if idle timeout is configured
-	if cp.config.Connection.IdleTimeout > 0 {
+	if cp.connectionConfig.IdleTimeout > 0 {
 		go cp.startCleanupRoutine()
 	}
 
@@ -111,7 +117,7 @@ func (cp *connectionPool) GetConnection(ctx context.Context) (*sftp.Client, erro
 		}
 
 		// If no available connection and we haven't reached the limit, create a new one
-		if len(cp.connections) < cp.config.Connection.MaxConnections {
+		if len(cp.connections) < cp.connectionConfig.MaxConnections {
 			conn, err := cp.createConnectionWithRetry(ctx)
 			if err != nil {
 				return err // errors are wrapped in createConnectionWithRetry
@@ -219,19 +225,18 @@ func (cp *connectionPool) createConnection(ctx context.Context) (*pooledConnecti
 
 	// Create SSH client configuration
 	sshConfig := &ssh.ClientConfig{
-		User:            cp.config.Username,
+		User:            cp.authConfig.Username,
 		Auth:            authMethods,
 		HostKeyCallback: cp.getHostKeyCallback(),
-		Timeout:         cp.config.Connection.Timeout,
+		Timeout:         cp.connectionConfig.Timeout,
 	}
 
 	// Establish SSH connection
-	address := fmt.Sprintf("%s:%d", cp.config.Host, cp.config.Port)
-
+	address := fmt.Sprintf("%s:%d", cp.authConfig.Host, cp.authConfig.Port)
 	var sshClient *ssh.Client
-	if cp.config.Connection.Timeout > 0 {
+	if cp.connectionConfig.Timeout > 0 {
 		// Use context with timeout for connection establishment
-		conn, err := cp.dialWithTimeout(ctx, "tcp", address, cp.config.Connection.Timeout)
+		conn, err := cp.dialWithTimeout(ctx, "tcp", address, cp.connectionConfig.Timeout)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to dial SSH: %v", ErrConnection, err)
 		}
@@ -276,8 +281,8 @@ func (cp *connectionPool) dialWithTimeout(ctx context.Context, network, address 
 
 // getHostKeyCallback returns the appropriate host key callback
 func (cp *connectionPool) getHostKeyCallback() ssh.HostKeyCallback {
-	if cp.config.Authentication.HostKeyCallback != nil {
-		return cp.config.Authentication.HostKeyCallback
+	if cp.authConfig.HostKeyCallback != nil {
+		return cp.authConfig.HostKeyCallback
 	}
 	// Default to insecure callback (should be configurable in production)
 	return ssh.InsecureIgnoreHostKey() // #nosec G106
@@ -290,8 +295,8 @@ func (cp *connectionPool) isConnectionHealthy(conn *pooledConnection) bool {
 	}
 
 	// Check if connection has been idle too long
-	if cp.config.Connection.IdleTimeout > 0 {
-		if time.Since(conn.lastUsed) > cp.config.Connection.IdleTimeout {
+	if cp.connectionConfig.IdleTimeout > 0 {
+		if time.Since(conn.lastUsed) > cp.connectionConfig.IdleTimeout {
 			_ = cp.closeConnection(conn)
 			return false
 		}
@@ -328,14 +333,14 @@ func (cp *connectionPool) cleanupIdleConnections() {
 	cp.mutex.Lock()
 	defer cp.mutex.Unlock()
 
-	if cp.config.Connection.IdleTimeout <= 0 {
+	if cp.connectionConfig.IdleTimeout <= 0 {
 		return
 	}
 
 	activeConnections := make([]*pooledConnection, 0, len(cp.connections))
 
 	for _, conn := range cp.connections {
-		if conn.inUse || time.Since(conn.lastUsed) <= cp.config.Connection.IdleTimeout {
+		if conn.inUse || time.Since(conn.lastUsed) <= cp.connectionConfig.IdleTimeout {
 			activeConnections = append(activeConnections, conn)
 		} else {
 			_ = cp.closeConnection(conn)
@@ -361,7 +366,7 @@ func (cp *connectionPool) removeConnectionAtIndex(index int) {
 // startCleanupRoutine starts a background routine to clean up idle connections
 // This is called automatically if idle timeout is configured
 func (cp *connectionPool) startCleanupRoutine() {
-	idleTimeout := cp.config.Connection.IdleTimeout
+	idleTimeout := cp.connectionConfig.IdleTimeout
 	if idleTimeout <= 0 {
 		return
 	}

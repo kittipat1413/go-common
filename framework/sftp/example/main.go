@@ -23,10 +23,11 @@ func main() {
 
 	// SFTP client configuration
 	config := sftp.Config{
-		Host:     "localhost", // hostname or IP address of the SFTP server
-		Port:     22,          // port number of the SFTP server
-		Username: "user",      // username for authentication
 		Authentication: sftp.AuthConfig{
+			Host:     "localhost", // hostname or IP address of the SFTP server
+			Port:     22,          // port number of the SFTP server
+			Username: "user",      // username for authentication
+
 			// Password authentication
 			// Method: sftp.AuthPassword, // authentication method: AuthPassword or AuthPrivateKey
 			// Password: "password", // password for AuthPassword method

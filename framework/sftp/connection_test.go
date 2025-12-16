@@ -32,9 +32,11 @@ func TestNewConnectionManager(t *testing.T) {
 		{
 			name: "valid config and auth handler",
 			config: sftp.Config{
-				Host:     "example.com",
-				Port:     22,
-				Username: "testuser",
+				Authentication: sftp.AuthConfig{
+					Host:     "example.com",
+					Port:     22,
+					Username: "testuser",
+				},
 				Connection: sftp.ConnectionConfig{
 					MaxConnections: 5,
 					Timeout:        30 * time.Second,
@@ -55,9 +57,11 @@ func TestNewConnectionManager(t *testing.T) {
 		{
 			name: "nil auth handler",
 			config: sftp.Config{
-				Host:     "example.com",
-				Port:     22,
-				Username: "testuser",
+				Authentication: sftp.AuthConfig{
+					Host:     "example.com",
+					Port:     22,
+					Username: "testuser",
+				},
 			},
 			authHandler: nil,
 			expectError: true,
@@ -66,8 +70,10 @@ func TestNewConnectionManager(t *testing.T) {
 		{
 			name: "invalid config - empty host",
 			config: sftp.Config{
-				Port:     22,
-				Username: "testuser",
+				Authentication: sftp.AuthConfig{
+					Port:     22,
+					Username: "testuser",
+				},
 			},
 			authHandler: sftp_mocks.NewMockAuthenticationHandler(ctrl),
 			expectError: true,
@@ -76,9 +82,11 @@ func TestNewConnectionManager(t *testing.T) {
 		{
 			name: "invalid config - negative port",
 			config: sftp.Config{
-				Host:     "example.com",
-				Port:     -1,
-				Username: "testuser",
+				Authentication: sftp.AuthConfig{
+					Host:     "example.com",
+					Port:     -1,
+					Username: "testuser",
+				},
 			},
 			authHandler: sftp_mocks.NewMockAuthenticationHandler(ctrl),
 			expectError: true,
@@ -87,8 +95,10 @@ func TestNewConnectionManager(t *testing.T) {
 		{
 			name: "invalid config - empty username",
 			config: sftp.Config{
-				Host: "example.com",
-				Port: 22,
+				Authentication: sftp.AuthConfig{
+					Host: "example.com",
+					Port: 22,
+				},
 			},
 			authHandler: sftp_mocks.NewMockAuthenticationHandler(ctrl),
 			expectError: true,
@@ -97,9 +107,11 @@ func TestNewConnectionManager(t *testing.T) {
 		{
 			name: "invalid config - invalid retry policy",
 			config: sftp.Config{
-				Host:     "example.com",
-				Port:     22,
-				Username: "testuser",
+				Authentication: sftp.AuthConfig{
+					Host:     "example.com",
+					Port:     22,
+					Username: "testuser",
+				},
 				Connection: sftp.ConnectionConfig{
 					MaxConnections: 1,
 					Timeout:        time.Second,
@@ -119,7 +131,7 @@ func TestNewConnectionManager(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager, err := sftp.NewConnectionManager(tt.config, tt.authHandler)
+			manager, err := sftp.NewConnectionManager(tt.authHandler, tt.config.Authentication, tt.config.Connection)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -145,9 +157,12 @@ func TestConnectionPool(t *testing.T) {
 	defer server.close()
 
 	baseConfig := sftp.Config{
-		Host:     server.getAddress(),
-		Port:     server.getPort(),
-		Username: server.auth.username,
+		Authentication: sftp.AuthConfig{
+			Host:            server.getAddress(),
+			Port:            server.getPort(),
+			Username:        server.auth.username,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		},
 		Connection: sftp.ConnectionConfig{
 			MaxConnections: 3,
 			Timeout:        5 * time.Second,
@@ -161,9 +176,6 @@ func TestConnectionPool(t *testing.T) {
 				},
 			},
 		},
-		Authentication: sftp.AuthConfig{
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		},
 	}
 
 	t.Run("Password Authentication", func(t *testing.T) {
@@ -172,7 +184,7 @@ func TestConnectionPool(t *testing.T) {
 		config.Authentication.Password = server.auth.password
 
 		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
-		pool, err := sftp.NewConnectionManager(config, authHandler)
+		pool, err := sftp.NewConnectionManager(authHandler, config.Authentication, config.Connection)
 		require.NoError(t, err)
 		defer pool.Close()
 
@@ -198,7 +210,7 @@ func TestConnectionPool(t *testing.T) {
 		config.Authentication.PrivateKeyData = server.auth.privateKeyPEM
 
 		authHandler := sftp.NewPrivateKeyAuthHandlerWithData(server.auth.username, server.auth.privateKeyPEM, "")
-		pool, err := sftp.NewConnectionManager(config, authHandler)
+		pool, err := sftp.NewConnectionManager(authHandler, config.Authentication, config.Connection)
 		require.NoError(t, err)
 		defer pool.Close()
 
@@ -224,7 +236,7 @@ func TestConnectionPool(t *testing.T) {
 		config.Authentication.Password = server.auth.password
 
 		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
-		pool, err := sftp.NewConnectionManager(config, authHandler)
+		pool, err := sftp.NewConnectionManager(authHandler, config.Authentication, config.Connection)
 		require.NoError(t, err)
 		defer pool.Close()
 
@@ -276,7 +288,7 @@ func TestConnectionPool(t *testing.T) {
 		config.Authentication.Password = server.auth.password
 
 		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
-		pool, err := sftp.NewConnectionManager(config, authHandler)
+		pool, err := sftp.NewConnectionManager(authHandler, config.Authentication, config.Connection)
 		require.NoError(t, err)
 		defer pool.Close()
 
@@ -312,7 +324,7 @@ func TestConnectionPool(t *testing.T) {
 		config.Authentication.Password = server.auth.password
 
 		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
-		pool, err := sftp.NewConnectionManager(config, authHandler)
+		pool, err := sftp.NewConnectionManager(authHandler, config.Authentication, config.Connection)
 		require.NoError(t, err)
 		defer pool.Close()
 
@@ -351,7 +363,7 @@ func TestConnectionPool(t *testing.T) {
 		config.Authentication.Password = server.auth.password
 
 		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
-		pool, err := sftp.NewConnectionManager(config, authHandler)
+		pool, err := sftp.NewConnectionManager(authHandler, config.Authentication, config.Connection)
 		require.NoError(t, err)
 		defer pool.Close()
 
@@ -395,9 +407,12 @@ func TestConnectionPool_InternalMethods(t *testing.T) {
 
 	t.Run("Remove Connection At Invalid Index", func(t *testing.T) {
 		config := sftp.Config{
-			Host:     server.getAddress(),
-			Port:     server.getPort(),
-			Username: server.auth.username,
+			Authentication: sftp.AuthConfig{
+				Host:            server.getAddress(),
+				Port:            server.getPort(),
+				Username:        server.auth.username,
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			},
 			Connection: sftp.ConnectionConfig{
 				MaxConnections: 1,
 				Timeout:        5 * time.Second,
@@ -409,13 +424,10 @@ func TestConnectionPool_InternalMethods(t *testing.T) {
 					},
 				},
 			},
-			Authentication: sftp.AuthConfig{
-				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			},
 		}
 
 		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
-		pool, err := sftp.NewConnectionManager(config, authHandler)
+		pool, err := sftp.NewConnectionManager(authHandler, config.Authentication, config.Connection)
 		require.NoError(t, err)
 		defer pool.Close()
 
@@ -444,9 +456,12 @@ func TestConnectionPool_InternalMethods(t *testing.T) {
 
 	t.Run("Release Non-existent Connection", func(t *testing.T) {
 		config := sftp.Config{
-			Host:     server.getAddress(),
-			Port:     server.getPort(),
-			Username: server.auth.username,
+			Authentication: sftp.AuthConfig{
+				Host:            server.getAddress(),
+				Port:            server.getPort(),
+				Username:        server.auth.username,
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			},
 			Connection: sftp.ConnectionConfig{
 				MaxConnections: 1,
 				Timeout:        5 * time.Second,
@@ -457,13 +472,10 @@ func TestConnectionPool_InternalMethods(t *testing.T) {
 					},
 				},
 			},
-			Authentication: sftp.AuthConfig{
-				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			},
 		}
 
 		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
-		pool, err := sftp.NewConnectionManager(config, authHandler)
+		pool, err := sftp.NewConnectionManager(authHandler, config.Authentication, config.Connection)
 		require.NoError(t, err)
 		defer pool.Close()
 
@@ -485,9 +497,12 @@ func TestConnectionPool_InternalMethods(t *testing.T) {
 
 	t.Run("Multiple Close Calls", func(t *testing.T) {
 		config := sftp.Config{
-			Host:     server.getAddress(),
-			Port:     server.getPort(),
-			Username: server.auth.username,
+			Authentication: sftp.AuthConfig{
+				Host:            server.getAddress(),
+				Port:            server.getPort(),
+				Username:        server.auth.username,
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			},
 			Connection: sftp.ConnectionConfig{
 				MaxConnections: 1,
 				Timeout:        5 * time.Second,
@@ -498,13 +513,10 @@ func TestConnectionPool_InternalMethods(t *testing.T) {
 					},
 				},
 			},
-			Authentication: sftp.AuthConfig{
-				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			},
 		}
 
 		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
-		pool, err := sftp.NewConnectionManager(config, authHandler)
+		pool, err := sftp.NewConnectionManager(authHandler, config.Authentication, config.Connection)
 		require.NoError(t, err)
 
 		// Close the pool
@@ -521,9 +533,12 @@ func TestConnectionPool_ErrorScenarios(t *testing.T) {
 
 	t.Run("Invalid Authentication", func(t *testing.T) {
 		config := sftp.Config{
-			Host:     server.getAddress(),
-			Port:     server.getPort(),
-			Username: server.auth.username,
+			Authentication: sftp.AuthConfig{
+				Host:            server.getAddress(),
+				Port:            server.getPort(),
+				Username:        server.auth.username,
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			},
 			Connection: sftp.ConnectionConfig{
 				MaxConnections: 1,
 				Timeout:        2 * time.Second,
@@ -534,13 +549,10 @@ func TestConnectionPool_ErrorScenarios(t *testing.T) {
 					},
 				},
 			},
-			Authentication: sftp.AuthConfig{
-				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			},
 		}
 
 		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, "wrongpass")
-		pool, err := sftp.NewConnectionManager(config, authHandler)
+		pool, err := sftp.NewConnectionManager(authHandler, config.Authentication, config.Connection)
 		require.NoError(t, err)
 		defer pool.Close()
 
@@ -551,9 +563,12 @@ func TestConnectionPool_ErrorScenarios(t *testing.T) {
 
 	t.Run("Connection After Pool Close", func(t *testing.T) {
 		config := sftp.Config{
-			Host:     server.getAddress(),
-			Port:     server.getPort(),
-			Username: server.auth.username,
+			Authentication: sftp.AuthConfig{
+				Host:            server.getAddress(),
+				Port:            server.getPort(),
+				Username:        server.auth.username,
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			},
 			Connection: sftp.ConnectionConfig{
 				MaxConnections: 1,
 				Timeout:        2 * time.Second,
@@ -564,13 +579,10 @@ func TestConnectionPool_ErrorScenarios(t *testing.T) {
 					},
 				},
 			},
-			Authentication: sftp.AuthConfig{
-				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			},
 		}
 
 		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
-		pool, err := sftp.NewConnectionManager(config, authHandler)
+		pool, err := sftp.NewConnectionManager(authHandler, config.Authentication, config.Connection)
 		require.NoError(t, err)
 
 		// Close the pool
@@ -585,9 +597,12 @@ func TestConnectionPool_ErrorScenarios(t *testing.T) {
 	t.Run("Connection Timeout", func(t *testing.T) {
 		// Test with an unreachable host to trigger timeout
 		config := sftp.Config{
-			Host:     "192.0.2.1", // RFC5737 test address - should be unreachable
-			Port:     22,
-			Username: server.auth.username,
+			Authentication: sftp.AuthConfig{
+				Host:            "192.0.2.1", // RFC5737 test address - should be unreachable
+				Port:            22,
+				Username:        server.auth.username,
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			},
 			Connection: sftp.ConnectionConfig{
 				MaxConnections: 1,
 				Timeout:        100 * time.Millisecond, // Very short timeout
@@ -598,13 +613,10 @@ func TestConnectionPool_ErrorScenarios(t *testing.T) {
 					},
 				},
 			},
-			Authentication: sftp.AuthConfig{
-				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			},
 		}
 
 		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
-		pool, err := sftp.NewConnectionManager(config, authHandler)
+		pool, err := sftp.NewConnectionManager(authHandler, config.Authentication, config.Connection)
 		require.NoError(t, err)
 		defer pool.Close()
 

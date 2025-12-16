@@ -10,9 +10,6 @@ import (
 
 // Config contains all configuration options for the SFTP client
 type Config struct {
-	Host           string           // SFTP server hostname or IP address
-	Port           int              // SFTP server port number
-	Username       string           // Username for authentication
 	Authentication AuthConfig       // Authentication-related configuration
 	Connection     ConnectionConfig // Connection-related configuration
 	Transfer       TransferConfig   // File transfer-related configuration
@@ -20,10 +17,19 @@ type Config struct {
 
 // AuthConfig contains authentication-related configuration
 type AuthConfig struct {
-	Method          AuthMethod          // Authentication method (AuthPassword or AuthPrivateKey)
-	Password        string              // Password for AuthPassword method
-	PrivateKeyPath  string              // Path to private key file for AuthPrivateKey method
-	PrivateKeyData  []byte              // Private key data for AuthPrivateKey method
+	Host     string // SFTP server hostname or IP address
+	Port     int    // SFTP server port number
+	Username string // Username for authentication
+
+	// Method specifies the authentication method to use
+	Method AuthMethod // Authentication method (AuthPassword or AuthPrivateKey)
+	// AuthPassword
+	Password string // Password for AuthPassword method
+	// AuthPrivateKey
+	PrivateKeyPath string // Path to private key file for AuthPrivateKey method
+	PrivateKeyData []byte // Private key data for AuthPrivateKey method
+
+	// HostKeyCallback is used to verify the server's host key
 	HostKeyCallback ssh.HostKeyCallback // Host key callback for server verification
 }
 
@@ -46,7 +52,9 @@ type TransferConfig struct {
 // DefaultConfig returns a configuration with sensible defaults
 func DefaultConfig() Config {
 	return Config{
-		Port: 22,
+		Authentication: AuthConfig{
+			Port: 22,
+		},
 		Connection: ConnectionConfig{
 			Timeout:        30 * time.Second,
 			MaxConnections: 10,
@@ -72,17 +80,6 @@ func DefaultConfig() Config {
 func MergeConfig(userConfig Config) Config {
 	config := DefaultConfig()
 
-	// Merge basic connection settings
-	if userConfig.Host != "" {
-		config.Host = userConfig.Host
-	}
-	if userConfig.Port != 0 {
-		config.Port = userConfig.Port
-	}
-	if userConfig.Username != "" {
-		config.Username = userConfig.Username
-	}
-
 	// Merge authentication config
 	config.Authentication = mergeAuthConfig(config.Authentication, userConfig.Authentication)
 
@@ -99,6 +96,16 @@ func MergeConfig(userConfig Config) Config {
 func mergeAuthConfig(defaultAuth, userAuth AuthConfig) AuthConfig {
 	result := defaultAuth
 
+	// Merge basic connection settings
+	if userAuth.Host != "" {
+		result.Host = userAuth.Host
+	}
+	if userAuth.Port != 0 {
+		result.Port = userAuth.Port
+	}
+	if userAuth.Username != "" {
+		result.Username = userAuth.Username
+	}
 	if userAuth.Method != 0 {
 		result.Method = userAuth.Method
 	}
@@ -175,16 +182,10 @@ func mergeTransferConfig(defaultTransfer, userTransfer TransferConfig) TransferC
 
 // validateConfig validates the SFTP client configuration
 func validateConfig(config Config) error {
-	if config.Host == "" {
-		return fmt.Errorf("%w: host cannot be empty", ErrConfiguration)
-	}
 
-	if config.Port <= 0 || config.Port > 65535 {
-		return fmt.Errorf("%w: port must be between 1 and 65535, got %d", ErrConfiguration, config.Port)
-	}
-
-	if config.Username == "" {
-		return fmt.Errorf("%w: username cannot be empty", ErrConfiguration)
+	// Validate authentication configuration
+	if err := validateAuthConfig(config.Authentication); err != nil {
+		return err
 	}
 
 	// Validate connection configuration
@@ -195,6 +196,23 @@ func validateConfig(config Config) error {
 	// Validate transfer configuration
 	if err := validateTransferConfig(config.Transfer); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// validateAuthConfig validates authentication-specific configuration
+func validateAuthConfig(config AuthConfig) error {
+	if config.Host == "" {
+		return fmt.Errorf("%w: host cannot be empty", ErrConfiguration)
+	}
+
+	if config.Port <= 0 || config.Port > 65535 {
+		return fmt.Errorf("%w: port must be between 1 and 65535, got %d", ErrConfiguration, config.Port)
+	}
+
+	if config.Username == "" {
+		return fmt.Errorf("%w: username cannot be empty", ErrConfiguration)
 	}
 
 	return nil
