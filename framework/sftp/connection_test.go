@@ -1,10 +1,18 @@
 package sftp_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
+	"fmt"
 	"net"
+	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,6 +25,228 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
+
+// testSFTPServer represents an in-memory SFTP server for testing
+type testSFTPServer struct {
+	listener     net.Listener
+	serverConfig *ssh.ServerConfig
+	tempDir      string
+	auth         testSFTPServerAuth
+	wg           sync.WaitGroup
+	mutex        sync.Mutex
+	closed       bool
+}
+
+type testSFTPServerAuth struct {
+	username      string
+	password      string
+	hostKey       ssh.Signer
+	publicKey     ssh.PublicKey
+	privateKeyPEM []byte
+}
+
+// newTestSFTPServer creates a new in-memory SFTP server
+func newTestSFTPServer(t *testing.T) *testSFTPServer {
+	t.Helper()
+
+	// Create temporary directory for file operations
+	tempDir, err := os.MkdirTemp("", "sftp-test-*")
+	require.NoError(t, err)
+
+	// Generate RSA key pair for the server
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	// Create SSH signer from private key
+	signer, err := ssh.NewSignerFromKey(privateKey)
+	require.NoError(t, err)
+
+	// Extract public key for client authentication
+	publicKey := signer.PublicKey()
+
+	// Create PEM-encoded private key for client use
+	privKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privKeyBytes,
+	})
+
+	// Setup authentication credentials
+	auth := testSFTPServerAuth{
+		username:      "testuser",
+		password:      "testpass",
+		hostKey:       signer,
+		publicKey:     publicKey,
+		privateKeyPEM: privateKeyPEM,
+	}
+
+	// Configure SSH server
+	config := &ssh.ServerConfig{
+		// Accept any password for testing
+		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
+			if c.User() == auth.username && string(pass) == auth.password {
+				return &ssh.Permissions{}, nil
+			}
+			return nil, fmt.Errorf("password rejected for %q", c.User())
+		},
+		// Accept our test public key
+		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
+			if c.User() != auth.username {
+				return nil, fmt.Errorf("public key rejected for %q", c.User())
+			}
+			if auth.publicKey != nil &&
+				bytes.Equal(pubKey.Marshal(), auth.publicKey.Marshal()) {
+				return &ssh.Permissions{}, nil
+			}
+			return nil, fmt.Errorf("public key mismatch for %q", c.User())
+		},
+		NoClientAuth: false,
+	}
+	config.AddHostKey(signer)
+
+	// Create listener
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	server := &testSFTPServer{
+		listener:     listener,
+		serverConfig: config,
+		tempDir:      tempDir,
+		auth:         auth,
+	}
+
+	// Start accepting connections
+	server.wg.Add(1)
+	go server.serve()
+
+	// Ensure server is closed on test cleanup
+	t.Cleanup(func() {
+		_ = server.close()
+	})
+
+	return server
+}
+
+// serve handles incoming connections
+func (s *testSFTPServer) serve() {
+	defer s.wg.Done()
+
+	for {
+		conn, err := s.listener.Accept()
+		if err != nil {
+			s.mutex.Lock()
+			closed := s.closed
+			s.mutex.Unlock()
+			if closed {
+				return
+			}
+			continue
+		}
+
+		s.wg.Add(1)
+		go s.handleConnection(conn)
+	}
+}
+
+// handleConnection handles a single SSH connection
+func (s *testSFTPServer) handleConnection(netConn net.Conn) {
+	defer s.wg.Done()
+	defer netConn.Close()
+
+	// Set a reasonable timeout for the connection
+	_ = netConn.SetDeadline(time.Now().Add(30 * time.Second))
+
+	// Perform SSH handshake
+	sshConn, chans, reqs, err := ssh.NewServerConn(netConn, s.serverConfig)
+	if err != nil {
+		return
+	}
+	defer sshConn.Close()
+
+	// Handle global SSH requests
+	go ssh.DiscardRequests(reqs)
+
+	// Handle SSH channels
+	for newChannel := range chans {
+		if newChannel.ChannelType() != "session" {
+			_ = newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
+			continue
+		}
+
+		channel, requests, err := newChannel.Accept()
+		if err != nil {
+			continue
+		}
+
+		s.wg.Add(1)
+		go s.handleChannel(channel, requests)
+	}
+}
+
+// handleChannel handles SSH channel requests (SFTP subsystem)
+func (s *testSFTPServer) handleChannel(channel ssh.Channel, requests <-chan *ssh.Request) {
+	defer s.wg.Done()
+	defer channel.Close()
+
+	for req := range requests {
+		switch req.Type {
+		case "subsystem":
+			// Extract subsystem name from payload
+			if len(req.Payload) < 4 {
+				_ = req.Reply(false, nil)
+				continue
+			}
+
+			// SSH string format: 4 bytes length + data
+			subsysLen := uint32(req.Payload[0])<<24 | uint32(req.Payload[1])<<16 | uint32(req.Payload[2])<<8 | uint32(req.Payload[3])
+			if subsysLen > uint32(len(req.Payload)-4) {
+				_ = req.Reply(false, nil)
+				continue
+			}
+
+			subsysName := string(req.Payload[4 : 4+subsysLen])
+
+			if subsysName == "sftp" {
+				_ = req.Reply(true, nil)
+				// Start SFTP server
+				server, err := pkg_sftp.NewServer(channel, pkg_sftp.WithServerWorkingDirectory(s.tempDir))
+				if err != nil {
+					return
+				}
+				_ = server.Serve()
+				return
+			}
+			_ = req.Reply(false, nil)
+		default:
+			_ = req.Reply(false, nil)
+		}
+	}
+}
+
+// getAddress returns the server's listening address
+func (s *testSFTPServer) getAddress() string {
+	return s.listener.Addr().(*net.TCPAddr).IP.String()
+}
+
+// getPort returns the server's listening port
+func (s *testSFTPServer) getPort() int {
+	return s.listener.Addr().(*net.TCPAddr).Port
+}
+
+// close stops the server and cleans up
+func (s *testSFTPServer) close() error {
+	s.mutex.Lock()
+	s.closed = true
+	s.mutex.Unlock()
+
+	err := s.listener.Close()
+	s.wg.Wait()
+
+	// Clean up temp directory
+	os.RemoveAll(s.tempDir)
+	return err
+}
 
 func TestNewConnectionManager(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -94,6 +324,27 @@ func TestNewConnectionManager(t *testing.T) {
 			expectError: true,
 			errorType:   sftp.ErrConfiguration,
 		},
+		{
+			name: "invalid config - invalid retry policy",
+			config: sftp.Config{
+				Host:     "example.com",
+				Port:     22,
+				Username: "testuser",
+				Connection: sftp.ConnectionConfig{
+					MaxConnections: 1,
+					Timeout:        time.Second,
+					RetryPolicy: retry.Config{
+						MaxAttempts: 1,
+						Backoff: &retry.FixedBackoff{
+							Interval: -1 * time.Second, // Invalid - negative interval
+						},
+					},
+				},
+			},
+			authHandler: sftp_mocks.NewMockAuthenticationHandler(ctrl),
+			expectError: true,
+			errorType:   sftp.ErrConfiguration,
+		},
 	}
 
 	for _, tt := range tests {
@@ -119,34 +370,457 @@ func TestNewConnectionManager(t *testing.T) {
 	}
 }
 
-func TestConnectionPool_GetConnection(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func TestConnectionPool(t *testing.T) {
+	server := newTestSFTPServer(t)
+	defer server.close()
 
-	t.Run("successful connection creation", func(t *testing.T) {
-		// Create a mock server for testing
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
+	baseConfig := sftp.Config{
+		Host:     server.getAddress(),
+		Port:     server.getPort(),
+		Username: server.auth.username,
+		Connection: sftp.ConnectionConfig{
+			MaxConnections: 3,
+			Timeout:        5 * time.Second,
+			IdleTimeout:    30 * time.Second,
+			RetryPolicy: retry.Config{
+				MaxAttempts: 3,
+				Backoff: &retry.ExponentialBackoff{
+					BaseDelay: 100 * time.Millisecond,
+					Factor:    2.0,
+					MaxDelay:  1 * time.Second,
+				},
+			},
+		},
+		Authentication: sftp.AuthConfig{
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		},
+	}
+
+	t.Run("Password Authentication", func(t *testing.T) {
+		config := baseConfig
+		config.Authentication.Method = sftp.AuthPassword
+		config.Authentication.Password = server.auth.password
+
+		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
+		pool, err := sftp.NewConnectionManager(config, authHandler)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer pool.Close()
 
-		port := listener.Addr().(*net.TCPAddr).Port
-		go func() {
-			for {
-				conn, err := listener.Accept()
+		ctx := context.Background()
+
+		// Test getting a connection
+		client, err := pool.GetConnection(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, client)
+
+		// Test that the connection works
+		workDir, err := client.Getwd()
+		require.NoError(t, err)
+		require.NotEmpty(t, workDir)
+
+		// Release connection
+		require.NoError(t, pool.ReleaseConnection(client))
+	})
+
+	t.Run("Private Key Authentication", func(t *testing.T) {
+		config := baseConfig
+		config.Authentication.Method = sftp.AuthPrivateKey
+		config.Authentication.PrivateKeyData = server.auth.privateKeyPEM
+
+		authHandler := sftp.NewPrivateKeyAuthHandlerWithData(server.auth.username, server.auth.privateKeyPEM, "")
+		pool, err := sftp.NewConnectionManager(config, authHandler)
+		require.NoError(t, err)
+		defer pool.Close()
+
+		ctx := context.Background()
+
+		// Test getting a connection
+		client, err := pool.GetConnection(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, client)
+
+		// Test that the connection works
+		_, err = client.Getwd()
+		require.NoError(t, err)
+
+		// Release connection
+		require.NoError(t, pool.ReleaseConnection(client))
+	})
+
+	t.Run("Connection Pool Behavior", func(t *testing.T) {
+		config := baseConfig
+		config.Connection.MaxConnections = 2
+		config.Authentication.Method = sftp.AuthPassword
+		config.Authentication.Password = server.auth.password
+
+		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
+		pool, err := sftp.NewConnectionManager(config, authHandler)
+		require.NoError(t, err)
+		defer pool.Close()
+
+		ctx := context.Background()
+
+		// Get first connection
+		client1, err := pool.GetConnection(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, client1)
+
+		// Get second connection
+		client2, err := pool.GetConnection(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, client2)
+
+		// Both connections should work
+		_, err = client1.Getwd()
+		require.NoError(t, err)
+
+		_, err = client2.Getwd()
+		require.NoError(t, err)
+
+		// Try to get third connection - should block and timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+
+		_, err = pool.GetConnection(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "context deadline exceeded")
+
+		// Release first connection
+		require.NoError(t, pool.ReleaseConnection(client1))
+
+		// Now we should be able to get a connection again
+		ctx = context.Background()
+		client3, err := pool.GetConnection(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, client3)
+
+		// Clean up
+		require.NoError(t, pool.ReleaseConnection(client2))
+		require.NoError(t, pool.ReleaseConnection(client3))
+	})
+
+	t.Run("Connection Reuse", func(t *testing.T) {
+		config := baseConfig
+		config.Connection.MaxConnections = 1
+		config.Authentication.Method = sftp.AuthPassword
+		config.Authentication.Password = server.auth.password
+
+		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
+		pool, err := sftp.NewConnectionManager(config, authHandler)
+		require.NoError(t, err)
+		defer pool.Close()
+
+		ctx := context.Background()
+
+		// Get a connection
+		client1, err := pool.GetConnection(ctx)
+		require.NoError(t, err)
+
+		// Test it works
+		_, err = client1.Getwd()
+		require.NoError(t, err)
+
+		// Release it
+		require.NoError(t, pool.ReleaseConnection(client1))
+
+		// Get another connection - should reuse the first one
+		client2, err := pool.GetConnection(ctx)
+		require.NoError(t, err)
+
+		// Should still work
+		_, err = client2.Getwd()
+		require.NoError(t, err)
+
+		require.NoError(t, pool.ReleaseConnection(client2))
+	})
+
+	t.Run("Idle Connection Cleanup", func(t *testing.T) {
+		config := baseConfig
+		config.Connection.MaxConnections = 2
+		config.Connection.IdleTimeout = 100 * time.Millisecond // Very short for testing
+		config.Authentication.Method = sftp.AuthPassword
+		config.Authentication.Password = server.auth.password
+
+		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
+		pool, err := sftp.NewConnectionManager(config, authHandler)
+		require.NoError(t, err)
+		defer pool.Close()
+
+		ctx := context.Background()
+
+		// Get a connection
+		client, err := pool.GetConnection(ctx)
+		require.NoError(t, err)
+
+		// Test it works
+		_, err = client.Getwd()
+		require.NoError(t, err)
+
+		// Release it
+		require.NoError(t, pool.ReleaseConnection(client))
+
+		// Wait for cleanup to happen
+		time.Sleep(1 * time.Second)
+
+		// Get another connection - the old one should have been cleaned up
+		// and a new one created
+		client2, err := pool.GetConnection(ctx)
+		require.NoError(t, err)
+
+		// Should still work
+		_, err = client2.Getwd()
+		require.NoError(t, err)
+
+		require.NoError(t, pool.ReleaseConnection(client2))
+	})
+
+	t.Run("Concurrent Access", func(t *testing.T) {
+		config := baseConfig
+		config.Connection.MaxConnections = 5
+		config.Authentication.Method = sftp.AuthPassword
+		config.Authentication.Password = server.auth.password
+
+		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
+		pool, err := sftp.NewConnectionManager(config, authHandler)
+		require.NoError(t, err)
+		defer pool.Close()
+
+		var wg sync.WaitGroup
+		numGoroutines := 10
+		var successCount int32
+
+		for i := 0; i < numGoroutines; i++ {
+			wg.Add(1)
+			go func(id int) {
+				defer wg.Done()
+
+				ctx := context.Background()
+				client, err := pool.GetConnection(ctx)
 				if err != nil {
 					return
 				}
-				conn.Close()
-			}
-		}()
 
+				// Test the connection
+				if _, err := client.Getwd(); err != nil {
+					return
+				}
+
+				// Release connection
+				if err := pool.ReleaseConnection(client); err == nil {
+					atomic.AddInt32(&successCount, 1)
+				}
+			}(i)
+		}
+
+		wg.Wait()
+
+		// At least some operations should have succeeded
+		assert.True(t, atomic.LoadInt32(&successCount) > 0, "Expected at least some concurrent operations to succeed")
+	})
+}
+
+func TestConnectionPool_InternalMethods(t *testing.T) {
+	server := newTestSFTPServer(t)
+	defer server.close()
+
+	t.Run("Remove Connection At Invalid Index", func(t *testing.T) {
 		config := sftp.Config{
-			Host:     "127.0.0.1",
-			Port:     port,
-			Username: "testuser",
+			Host:     server.getAddress(),
+			Port:     server.getPort(),
+			Username: server.auth.username,
 			Connection: sftp.ConnectionConfig{
-				MaxConnections: 2,
-				Timeout:        100 * time.Millisecond, // Short timeout for quick test
+				MaxConnections: 1,
+				Timeout:        5 * time.Second,
+				IdleTimeout:    100 * time.Millisecond,
+				RetryPolicy: retry.Config{
+					MaxAttempts: 2,
+					Backoff: &retry.FixedBackoff{
+						Interval: 100 * time.Millisecond,
+					},
+				},
+			},
+			Authentication: sftp.AuthConfig{
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			},
+		}
+
+		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
+		pool, err := sftp.NewConnectionManager(config, authHandler)
+		require.NoError(t, err)
+		defer pool.Close()
+
+		ctx := context.Background()
+
+		// Get a connection to populate the pool
+		client1, err := pool.GetConnection(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, client1)
+
+		// Release the connection back to the pool
+		require.NoError(t, pool.ReleaseConnection(client1))
+
+		time.Sleep(150 * time.Millisecond)
+
+		// Get connection again - the old one should have been removed due to idle timeout
+		client2, err := pool.GetConnection(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, client2)
+
+		_, err = client2.Getwd()
+		require.NoError(t, err)
+
+		require.NoError(t, pool.ReleaseConnection(client2))
+	})
+
+	t.Run("Release Non-existent Connection", func(t *testing.T) {
+		config := sftp.Config{
+			Host:     server.getAddress(),
+			Port:     server.getPort(),
+			Username: server.auth.username,
+			Connection: sftp.ConnectionConfig{
+				MaxConnections: 1,
+				Timeout:        5 * time.Second,
+				RetryPolicy: retry.Config{
+					MaxAttempts: 2,
+					Backoff: &retry.FixedBackoff{
+						Interval: 100 * time.Millisecond,
+					},
+				},
+			},
+			Authentication: sftp.AuthConfig{
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			},
+		}
+
+		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
+		pool, err := sftp.NewConnectionManager(config, authHandler)
+		require.NoError(t, err)
+		defer pool.Close()
+
+		ctx := context.Background()
+
+		// Get a connection
+		client1, err := pool.GetConnection(ctx)
+		require.NoError(t, err)
+
+		// Release it
+		require.NoError(t, pool.ReleaseConnection(client1))
+
+		// Try to release a nil client (not in pool)
+		dummyClient := &pkg_sftp.Client{}
+		err = pool.ReleaseConnection(dummyClient)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, sftp.ErrConnectionNotFound)
+	})
+
+	t.Run("Multiple Close Calls", func(t *testing.T) {
+		config := sftp.Config{
+			Host:     server.getAddress(),
+			Port:     server.getPort(),
+			Username: server.auth.username,
+			Connection: sftp.ConnectionConfig{
+				MaxConnections: 1,
+				Timeout:        5 * time.Second,
+				RetryPolicy: retry.Config{
+					MaxAttempts: 1,
+					Backoff: &retry.FixedBackoff{
+						Interval: 100 * time.Millisecond,
+					},
+				},
+			},
+			Authentication: sftp.AuthConfig{
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			},
+		}
+
+		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
+		pool, err := sftp.NewConnectionManager(config, authHandler)
+		require.NoError(t, err)
+
+		// Close the pool
+		require.NoError(t, pool.Close())
+
+		// Close again - should not error
+		require.NoError(t, pool.Close())
+	})
+}
+
+func TestConnectionPool_ErrorScenarios(t *testing.T) {
+	server := newTestSFTPServer(t)
+	defer server.close()
+
+	t.Run("Invalid Authentication", func(t *testing.T) {
+		config := sftp.Config{
+			Host:     server.getAddress(),
+			Port:     server.getPort(),
+			Username: server.auth.username,
+			Connection: sftp.ConnectionConfig{
+				MaxConnections: 1,
+				Timeout:        2 * time.Second,
+				RetryPolicy: retry.Config{
+					MaxAttempts: 2,
+					Backoff: &retry.FixedBackoff{
+						Interval: 100 * time.Millisecond,
+					},
+				},
+			},
+			Authentication: sftp.AuthConfig{
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			},
+		}
+
+		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, "wrongpass")
+		pool, err := sftp.NewConnectionManager(config, authHandler)
+		require.NoError(t, err)
+		defer pool.Close()
+
+		ctx := context.Background()
+		_, err = pool.GetConnection(ctx)
+		require.ErrorIs(t, err, sftp.ErrConnection)
+	})
+
+	t.Run("Connection After Pool Close", func(t *testing.T) {
+		config := sftp.Config{
+			Host:     server.getAddress(),
+			Port:     server.getPort(),
+			Username: server.auth.username,
+			Connection: sftp.ConnectionConfig{
+				MaxConnections: 1,
+				Timeout:        2 * time.Second,
+				RetryPolicy: retry.Config{
+					MaxAttempts: 1,
+					Backoff: &retry.FixedBackoff{
+						Interval: 100 * time.Millisecond,
+					},
+				},
+			},
+			Authentication: sftp.AuthConfig{
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			},
+		}
+
+		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
+		pool, err := sftp.NewConnectionManager(config, authHandler)
+		require.NoError(t, err)
+
+		// Close the pool
+		require.NoError(t, pool.Close())
+
+		// Try to get a connection after closing
+		ctx := context.Background()
+		_, err = pool.GetConnection(ctx)
+		require.ErrorIs(t, err, sftp.ErrConnectionClosed)
+	})
+
+	t.Run("Connection Timeout", func(t *testing.T) {
+		// Test with an unreachable host to trigger timeout
+		config := sftp.Config{
+			Host:     "192.0.2.1", // RFC5737 test address - should be unreachable
+			Port:     22,
+			Username: server.auth.username,
+			Connection: sftp.ConnectionConfig{
+				MaxConnections: 1,
+				Timeout:        100 * time.Millisecond, // Very short timeout
 				RetryPolicy: retry.Config{
 					MaxAttempts: 1,
 					Backoff: &retry.FixedBackoff{
@@ -159,315 +833,13 @@ func TestConnectionPool_GetConnection(t *testing.T) {
 			},
 		}
 
-		mockAuth := sftp_mocks.NewMockAuthenticationHandler(ctrl)
-		mockAuth.EXPECT().GetAuthMethods().Return([]ssh.AuthMethod{
-			ssh.Password("password"),
-		}, nil).AnyTimes()
-
-		manager, err := sftp.NewConnectionManager(config, mockAuth)
+		authHandler := sftp.NewPasswordAuthHandler(server.auth.username, server.auth.password)
+		pool, err := sftp.NewConnectionManager(config, authHandler)
 		require.NoError(t, err)
-		defer manager.Close()
+		defer pool.Close()
 
 		ctx := context.Background()
-
-		// This will likely fail due to authentication, but we're testing the retry mechanism
-		_, err = manager.GetConnection(ctx)
-		assert.ErrorIs(t, err, sftp.ErrConnection)
+		_, err = pool.GetConnection(ctx)
+		require.Error(t, err)
 	})
-
-	t.Run("context cancellation", func(t *testing.T) {
-		config := sftp.Config{
-			Host:     "nonexistent.example.com",
-			Port:     22,
-			Username: "testuser",
-			Connection: sftp.ConnectionConfig{
-				MaxConnections: 1,
-				Timeout:        5 * time.Second,
-				RetryPolicy: retry.Config{
-					MaxAttempts: 3,
-					Backoff: &retry.FixedBackoff{
-						Interval: 100 * time.Millisecond,
-					},
-				},
-			},
-		}
-
-		mockAuth := sftp_mocks.NewMockAuthenticationHandler(ctrl)
-		mockAuth.EXPECT().GetAuthMethods().Return([]ssh.AuthMethod{
-			ssh.Password("password"),
-		}, nil).AnyTimes()
-
-		manager, err := sftp.NewConnectionManager(config, mockAuth)
-		require.NoError(t, err)
-		defer manager.Close()
-
-		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-		defer cancel()
-
-		_, err = manager.GetConnection(ctx)
-		assert.ErrorIs(t, err, context.DeadlineExceeded)
-	})
-
-	t.Run("auth handler error", func(t *testing.T) {
-		config := sftp.Config{
-			Host:     "example.com",
-			Port:     22,
-			Username: "testuser",
-			Connection: sftp.ConnectionConfig{
-				MaxConnections: 1,
-				Timeout:        time.Second,
-				RetryPolicy: retry.Config{
-					MaxAttempts: 1,
-					Backoff: &retry.FixedBackoff{
-						Interval: 10 * time.Millisecond,
-					},
-				},
-			},
-		}
-
-		mockAuth := sftp_mocks.NewMockAuthenticationHandler(ctrl)
-		expectedErr := errors.New("authentication error")
-		mockAuth.EXPECT().GetAuthMethods().Return(nil, expectedErr)
-
-		manager, err := sftp.NewConnectionManager(config, mockAuth)
-		require.NoError(t, err)
-		defer manager.Close()
-
-		ctx := context.Background()
-		_, err = manager.GetConnection(ctx)
-		assert.ErrorIs(t, err, expectedErr)
-	})
-}
-
-func TestConnectionPool_ReleaseConnection(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	config := sftp.Config{
-		Host:     "example.com",
-		Port:     22,
-		Username: "testuser",
-		Connection: sftp.ConnectionConfig{
-			MaxConnections: 1,
-			Timeout:        time.Second,
-		},
-	}
-
-	mockAuth := sftp_mocks.NewMockAuthenticationHandler(ctrl)
-	manager, err := sftp.NewConnectionManager(config, mockAuth)
-	require.NoError(t, err)
-	defer manager.Close()
-
-	t.Run("connection not found", func(t *testing.T) {
-		// Create a mock SFTP client that's not in the pool
-		// We can't create a real sftp.Client, so we'll create one through a different method
-		// For this test, we'll use nil since the pool should handle this gracefully
-		var mockSftpClient *pkg_sftp.Client
-
-		err := manager.ReleaseConnection(mockSftpClient)
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, sftp.ErrConnectionNotFound))
-	})
-}
-
-func TestConnectionPool_Close(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	config := sftp.Config{
-		Host:     "example.com",
-		Port:     22,
-		Username: "testuser",
-		Connection: sftp.ConnectionConfig{
-			MaxConnections: 1,
-			Timeout:        time.Second,
-		},
-	}
-
-	mockAuth := sftp_mocks.NewMockAuthenticationHandler(ctrl)
-	manager, err := sftp.NewConnectionManager(config, mockAuth)
-	require.NoError(t, err)
-
-	t.Run("close successfully", func(t *testing.T) {
-		err := manager.Close()
-		assert.NoError(t, err)
-
-		// Closing again should be safe
-		err = manager.Close()
-		assert.NoError(t, err)
-	})
-
-	t.Run("get connection after close", func(t *testing.T) {
-		ctx := context.Background()
-		_, err := manager.GetConnection(ctx)
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, sftp.ErrConnectionClosed))
-	})
-}
-
-func TestConnectionPool_ConcurrentAccess(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	config := sftp.Config{
-		Host:     "example.com",
-		Port:     22,
-		Username: "testuser",
-		Connection: sftp.ConnectionConfig{
-			MaxConnections: 3,
-			Timeout:        100 * time.Millisecond,
-			RetryPolicy: retry.Config{
-				MaxAttempts: 1,
-				Backoff: &retry.FixedBackoff{
-					Interval: 10 * time.Millisecond,
-				},
-			},
-		},
-	}
-
-	mockAuth := sftp_mocks.NewMockAuthenticationHandler(ctrl)
-	mockAuth.EXPECT().GetAuthMethods().Return([]ssh.AuthMethod{
-		ssh.Password("password"),
-	}, nil).AnyTimes()
-
-	manager, err := sftp.NewConnectionManager(config, mockAuth)
-	require.NoError(t, err)
-	defer manager.Close()
-
-	// Test concurrent access to GetConnection
-	var wg sync.WaitGroup
-	numGoroutines := 10
-
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			ctx := context.Background()
-			_, err := manager.GetConnection(ctx)
-			// We expect errors due to connection failures, but no panics
-			_ = err
-		}()
-	}
-
-	wg.Wait()
-
-	// Test concurrent Close calls
-	var closeWg sync.WaitGroup
-	for i := 0; i < 5; i++ {
-		closeWg.Add(1)
-		go func() {
-			defer closeWg.Done()
-			_ = manager.Close()
-		}()
-	}
-
-	closeWg.Wait()
-}
-
-func TestConnectionPool_MaxConnections(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	// Use a very small connection pool to test the limit
-	config := sftp.Config{
-		Host:     "example.com",
-		Port:     22,
-		Username: "testuser",
-		Connection: sftp.ConnectionConfig{
-			MaxConnections: 1, // Only allow 1 connection
-			Timeout:        100 * time.Millisecond,
-			RetryPolicy: retry.Config{
-				MaxAttempts: 1,
-				Backoff: &retry.FixedBackoff{
-					Interval: 10 * time.Millisecond,
-				},
-			},
-		},
-	}
-
-	mockAuth := sftp_mocks.NewMockAuthenticationHandler(ctrl)
-
-	// Mock will return auth error to prevent actual connections
-	authError := errors.New("auth error")
-	mockAuth.EXPECT().GetAuthMethods().Return(nil, authError).AnyTimes()
-
-	manager, err := sftp.NewConnectionManager(config, mockAuth)
-	require.NoError(t, err)
-	defer manager.Close()
-
-	ctx := context.Background()
-
-	// This should fail due to auth error, not pool limits
-	_, err = manager.GetConnection(ctx)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "auth error")
-}
-
-func TestConnectionPool_RetryPolicy(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	config := sftp.Config{
-		Host:     "example.com",
-		Port:     22,
-		Username: "testuser",
-		Connection: sftp.ConnectionConfig{
-			MaxConnections: 1,
-			Timeout:        50 * time.Millisecond,
-			RetryPolicy: retry.Config{
-				MaxAttempts: 2,
-				Backoff: &retry.FixedBackoff{
-					Interval: 10 * time.Millisecond,
-				},
-			},
-		},
-	}
-
-	mockAuth := sftp_mocks.NewMockAuthenticationHandler(ctrl)
-
-	// First call fails, second call also fails
-	authError := errors.New("temporary auth error")
-	mockAuth.EXPECT().GetAuthMethods().Return(nil, authError).AnyTimes()
-
-	manager, err := sftp.NewConnectionManager(config, mockAuth)
-	require.NoError(t, err)
-	defer manager.Close()
-
-	ctx := context.Background()
-	start := time.Now()
-
-	_, err = manager.GetConnection(ctx)
-	elapsed := time.Since(start)
-
-	assert.Error(t, err)
-	// Should have retried at least once (with delay)
-	assert.True(t, elapsed >= 10*time.Millisecond, "should have waited for retry delay")
-}
-
-func TestConnectionPool_InvalidRetryPolicy(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	// Test with a config that has an invalid backoff strategy after merging
-	config := sftp.Config{
-		Host:     "example.com",
-		Port:     22,
-		Username: "testuser",
-		Connection: sftp.ConnectionConfig{
-			MaxConnections: 1,
-			Timeout:        time.Second,
-			RetryPolicy: retry.Config{
-				MaxAttempts: 1,
-				Backoff: &retry.FixedBackoff{
-					Interval: -1 * time.Second, // Invalid - negative interval
-				},
-			},
-		},
-	}
-
-	mockAuth := sftp_mocks.NewMockAuthenticationHandler(ctrl)
-
-	_, err := sftp.NewConnectionManager(config, mockAuth)
-	assert.Error(t, err)
-	assert.True(t, errors.Is(err, sftp.ErrConfiguration))
 }

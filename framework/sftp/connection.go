@@ -361,16 +361,24 @@ func (cp *connectionPool) removeConnectionAtIndex(index int) {
 // startCleanupRoutine starts a background routine to clean up idle connections
 // This is called automatically if idle timeout is configured
 func (cp *connectionPool) startCleanupRoutine() {
-	if cp.config.Connection.IdleTimeout <= 0 {
+	idleTimeout := cp.config.Connection.IdleTimeout
+	if idleTimeout <= 0 {
 		return
 	}
 
-	// Clean up every minute or half the idle timeout, whichever is smaller
-	cleanupInterval := cp.config.Connection.IdleTimeout / 2
-	if cleanupInterval > time.Minute {
-		cleanupInterval = time.Minute
+	// Determine cleanup interval
+	const minInterval = 1 * time.Second
+	const maxInterval = 1 * time.Minute
+
+	cleanupInterval := idleTimeout / 2
+	if cleanupInterval < minInterval {
+		cleanupInterval = minInterval
+	}
+	if cleanupInterval > maxInterval {
+		cleanupInterval = maxInterval
 	}
 
+	// Start cleanup ticker
 	ticker := time.NewTicker(cleanupInterval)
 	defer ticker.Stop()
 
