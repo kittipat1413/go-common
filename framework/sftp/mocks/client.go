@@ -36,6 +36,20 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// Close mocks base method.
+func (m *MockClient) Close() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockClientMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockClient)(nil).Close))
+}
+
 // Connect mocks base method.
 func (m *MockClient) Connect(ctx context.Context) error {
 	m.ctrl.T.Helper()
@@ -48,20 +62,6 @@ func (m *MockClient) Connect(ctx context.Context) error {
 func (mr *MockClientMockRecorder) Connect(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockClient)(nil).Connect), ctx)
-}
-
-// Disconnect mocks base method.
-func (m *MockClient) Disconnect() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Disconnect")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Disconnect indicates an expected call of Disconnect.
-func (mr *MockClientMockRecorder) Disconnect() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockClient)(nil).Disconnect))
 }
 
 // Download mocks base method.

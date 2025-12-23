@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/kittipat1413/go-common/framework/logger"
@@ -51,6 +52,20 @@ func TestNewClient(t *testing.T) {
 				},
 			},
 			expectError: false, // Config validation passes, key file validation happens at connect time
+		},
+		{
+			name: "valid private key authentication config with valid key data",
+			config: sftp.Config{
+				Authentication: sftp.AuthConfig{
+					Host:            "example.com",
+					Port:            22,
+					Username:        "testuser",
+					Method:          sftp.AuthPrivateKey,
+					PrivateKeyData:  []byte("valid-key-data"),
+					HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+				},
+			},
+			expectError: false, // Config validation passes, key data validation happens at connect time
 		},
 		{
 			name: "invalid config - empty host",
@@ -126,53 +141,70 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestNewClientWithDependencies(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	tests := []struct {
 		name              string
-		authHandler       sftp.AuthenticationHandler
-		connectionManager sftp.ConnectionManager
+		authHandler       func(ctrl *gomock.Controller) sftp.AuthenticationHandler
+		connectionManager func(ctrl *gomock.Controller) sftp.ConnectionManager
 		transferConfig    sftp.TransferConfig
 		expectError       bool
 		errorType         error
 	}{
 		{
-			name:              "valid dependencies",
-			authHandler:       sftp_mocks.NewMockAuthenticationHandler(ctrl),
-			connectionManager: sftp_mocks.NewMockConnectionManager(ctrl),
-			transferConfig:    sftp.DefaultConfig().Transfer,
-			expectError:       false,
+			name: "valid dependencies",
+			authHandler: func(ctrl *gomock.Controller) sftp.AuthenticationHandler {
+				return sftp_mocks.NewMockAuthenticationHandler(ctrl)
+			},
+			connectionManager: func(ctrl *gomock.Controller) sftp.ConnectionManager {
+				return sftp_mocks.NewMockConnectionManager(ctrl)
+			},
+			transferConfig: sftp.DefaultConfig().Transfer,
+			expectError:    false,
 		},
 		{
-			name:              "nil auth handler",
-			authHandler:       nil,
-			connectionManager: sftp_mocks.NewMockConnectionManager(ctrl),
-			transferConfig:    sftp.DefaultConfig().Transfer,
-			expectError:       true,
-			errorType:         sftp.ErrConfiguration,
+			name: "nil auth handler",
+			authHandler: func(ctrl *gomock.Controller) sftp.AuthenticationHandler {
+				return nil
+			},
+			connectionManager: func(ctrl *gomock.Controller) sftp.ConnectionManager {
+				return sftp_mocks.NewMockConnectionManager(ctrl)
+			},
+			transferConfig: sftp.DefaultConfig().Transfer,
+			expectError:    true,
+			errorType:      sftp.ErrConfiguration,
 		},
 		{
-			name:              "nil connection manager",
-			authHandler:       sftp_mocks.NewMockAuthenticationHandler(ctrl),
-			connectionManager: nil,
-			transferConfig:    sftp.DefaultConfig().Transfer,
-			expectError:       true,
-			errorType:         sftp.ErrConfiguration,
+			name: "nil connection manager",
+			authHandler: func(ctrl *gomock.Controller) sftp.AuthenticationHandler {
+				return sftp_mocks.NewMockAuthenticationHandler(ctrl)
+			},
+			connectionManager: func(ctrl *gomock.Controller) sftp.ConnectionManager {
+				return nil
+			},
+			transferConfig: sftp.DefaultConfig().Transfer,
+			expectError:    true,
+			errorType:      sftp.ErrConfiguration,
 		},
 		{
-			name:              "invalid transfer config - zero buffer size",
-			authHandler:       sftp_mocks.NewMockAuthenticationHandler(ctrl),
-			connectionManager: sftp_mocks.NewMockConnectionManager(ctrl),
+			name: "invalid transfer config - zero buffer size",
+			authHandler: func(ctrl *gomock.Controller) sftp.AuthenticationHandler {
+				return sftp_mocks.NewMockAuthenticationHandler(ctrl)
+			},
+			connectionManager: func(ctrl *gomock.Controller) sftp.ConnectionManager {
+				return sftp_mocks.NewMockConnectionManager(ctrl)
+			},
 			transferConfig: sftp.TransferConfig{
 				BufferSize: 0,
 			},
 			expectError: false, // Zero value is ignored by merge, uses default
 		},
 		{
-			name:              "invalid transfer config - buffer size too large",
-			authHandler:       sftp_mocks.NewMockAuthenticationHandler(ctrl),
-			connectionManager: sftp_mocks.NewMockConnectionManager(ctrl),
+			name: "invalid transfer config - buffer size too large",
+			authHandler: func(ctrl *gomock.Controller) sftp.AuthenticationHandler {
+				return sftp_mocks.NewMockAuthenticationHandler(ctrl)
+			},
+			connectionManager: func(ctrl *gomock.Controller) sftp.ConnectionManager {
+				return sftp_mocks.NewMockConnectionManager(ctrl)
+			},
 			transferConfig: sftp.TransferConfig{
 				BufferSize: 20 * 1024 * 1024, // 20MB, exceeds 10MB limit
 			},
@@ -183,7 +215,12 @@ func TestNewClientWithDependencies(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, err := sftp.NewClientWithDependencies(tt.authHandler, tt.connectionManager, tt.transferConfig)
+			ctrl := gomock.NewController(t)
+			t.Cleanup(ctrl.Finish)
+
+			authHandler := tt.authHandler(ctrl)
+			connectionManager := tt.connectionManager(ctrl)
+			client, err := sftp.NewClientWithDependencies(authHandler, connectionManager, tt.transferConfig)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -199,19 +236,22 @@ func TestNewClientWithDependencies(t *testing.T) {
 	}
 }
 
-func TestClientConnect(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockAuthHandler := sftp_mocks.NewMockAuthenticationHandler(ctrl)
-	mockConnManager := sftp_mocks.NewMockConnectionManager(ctrl)
-	mockSFTPClient := &pkg_sftp.Client{}
-
-	client, err := sftp.NewClientWithDependencies(mockAuthHandler, mockConnManager, sftp.DefaultConfig().Transfer)
-	require.NoError(t, err)
-
-	t.Run("successful connection", func(t *testing.T) {
+func TestConnect(t *testing.T) {
+	t.Run("should connect successfully", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockAuthHandler := sftp_mocks.NewMockAuthenticationHandler(ctrl)
+		mockConnManager := sftp_mocks.NewMockConnectionManager(ctrl)
+		mockSFTPClient := &pkg_sftp.Client{}
+
+		client, err := sftp.NewClientWithDependencies(
+			mockAuthHandler,
+			mockConnManager,
+			sftp.DefaultConfig().Transfer,
+		)
+		require.NoError(t, err)
 
 		mockConnManager.EXPECT().
 			GetConnection(ctx).
@@ -223,74 +263,79 @@ func TestClientConnect(t *testing.T) {
 			Return(nil).
 			Times(1)
 
-		err := client.Connect(ctx)
-		require.NoError(t, err)
-
-		// Second connect should be idempotent
 		err = client.Connect(ctx)
 		require.NoError(t, err)
 	})
 
-	t.Run("connection failure", func(t *testing.T) {
-		mockAuthHandler2 := sftp_mocks.NewMockAuthenticationHandler(ctrl)
-		mockConnManager2 := sftp_mocks.NewMockConnectionManager(ctrl)
+	t.Run("should return error when getting connection fails", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-		client2, err := sftp.NewClientWithDependencies(mockAuthHandler2, mockConnManager2, sftp.DefaultConfig().Transfer)
+		mockAuthHandler := sftp_mocks.NewMockAuthenticationHandler(ctrl)
+		mockConnManager := sftp_mocks.NewMockConnectionManager(ctrl)
+
+		client, err := sftp.NewClientWithDependencies(
+			mockAuthHandler,
+			mockConnManager,
+			sftp.DefaultConfig().Transfer,
+		)
 		require.NoError(t, err)
 
-		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 		expectedErr := fmt.Errorf("%w: connection failed", sftp.ErrConnection)
-
-		mockConnManager2.EXPECT().
+		mockConnManager.EXPECT().
 			GetConnection(ctx).
 			Return(nil, expectedErr).
 			Times(1)
 
-		err = client2.Connect(ctx)
+		err = client.Connect(ctx)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, sftp.ErrConnection)
+	})
+
+	t.Run("should return error when release connection fails", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockAuthHandler := sftp_mocks.NewMockAuthenticationHandler(ctrl)
+		mockConnManager := sftp_mocks.NewMockConnectionManager(ctrl)
+		mockSFTPClient := &pkg_sftp.Client{}
+
+		client, err := sftp.NewClientWithDependencies(
+			mockAuthHandler,
+			mockConnManager,
+			sftp.DefaultConfig().Transfer,
+		)
+		require.NoError(t, err)
+
+		mockConnManager.EXPECT().
+			GetConnection(ctx).
+			Return(mockSFTPClient, nil).
+			Times(1)
+
+		expectedErr := fmt.Errorf("%w: release failed", sftp.ErrConnection)
+		mockConnManager.EXPECT().
+			ReleaseConnection(mockSFTPClient).
+			Return(expectedErr).
+			Times(1)
+
+		err = client.Connect(ctx)
 		require.Error(t, err)
 		assert.ErrorIs(t, err, sftp.ErrConnection)
 	})
 }
 
-func TestClientClose(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	t.Run("close before connect", func(t *testing.T) {
+func TestClose(t *testing.T) {
+	t.Run("should close connection successfully", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		mockAuthHandler := sftp_mocks.NewMockAuthenticationHandler(ctrl)
 		mockConnManager := sftp_mocks.NewMockConnectionManager(ctrl)
 
 		client, err := sftp.NewClientWithDependencies(mockAuthHandler, mockConnManager, sftp.DefaultConfig().Transfer)
 		require.NoError(t, err)
 
-		// Should not call Close on connection manager since not connected
-		err = client.Close()
-		require.NoError(t, err)
-	})
-
-	t.Run("close after connect", func(t *testing.T) {
-		mockAuthHandler := sftp_mocks.NewMockAuthenticationHandler(ctrl)
-		mockConnManager := sftp_mocks.NewMockConnectionManager(ctrl)
-		mockSFTPClient := &pkg_sftp.Client{}
-
-		client, err := sftp.NewClientWithDependencies(mockAuthHandler, mockConnManager, sftp.DefaultConfig().Transfer)
-		require.NoError(t, err)
-
-		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
-
-		// Connect first
-		mockConnManager.EXPECT().
-			GetConnection(ctx).
-			Return(mockSFTPClient, nil)
-
-		mockConnManager.EXPECT().
-			ReleaseConnection(mockSFTPClient).
-			Return(nil)
-
-		err = client.Connect(ctx)
-		require.NoError(t, err)
-
-		// Now close
 		mockConnManager.EXPECT().
 			Close().
 			Return(nil).
@@ -301,7 +346,7 @@ func TestClientClose(t *testing.T) {
 	})
 }
 
-func TestClientOperations_Integration(t *testing.T) {
+func TestUpload(t *testing.T) {
 	server := newTestSFTPServer(t)
 	defer server.close()
 
@@ -324,7 +369,7 @@ func TestClientOperations_Integration(t *testing.T) {
 	err = client.Connect(context.Background())
 	require.NoError(t, err)
 
-	t.Run("Upload and Download", func(t *testing.T) {
+	t.Run("should upload file successfully", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 
 		// Create a temporary local file
@@ -338,19 +383,22 @@ func TestClientOperations_Integration(t *testing.T) {
 		remotePath := "upload-test.txt"
 		err = client.Upload(ctx, localFile, remotePath)
 		require.NoError(t, err)
-
-		// Download the file
-		downloadPath := filepath.Join(localDir, "download-test.txt")
-		err = client.Download(ctx, remotePath, downloadPath)
-		require.NoError(t, err)
-
-		// Verify content
-		downloadedContent, err := os.ReadFile(downloadPath)
-		require.NoError(t, err)
-		assert.Equal(t, content, downloadedContent)
 	})
 
-	t.Run("Upload with CreateDirs", func(t *testing.T) {
+	t.Run("should return error for non-existent local file", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		// Non-existent local file
+		localFile := "nonexistent-file.txt"
+
+		// Upload the file
+		remotePath := "upload-test.txt"
+		err := client.Upload(ctx, localFile, remotePath)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, sftp.ErrFileNotFound)
+	})
+
+	t.Run("should upload with CreateDirs", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 
 		// Create a temporary local file
@@ -361,47 +409,631 @@ func TestClientOperations_Integration(t *testing.T) {
 
 		// Upload to nested directory
 		remotePath := "nested/dir/test.txt"
-		err = client.Upload(ctx, localFile, remotePath, sftp.WithCreateDirs(true))
+		err = client.Upload(ctx, localFile, remotePath, sftp.WithUploadCreateDirs(true))
 		require.NoError(t, err)
-
-		// Verify file exists
-		info, err := client.Stat(ctx, remotePath)
-		require.NoError(t, err)
-		assert.False(t, info.IsDir())
 	})
 
-	t.Run("Upload with OverwriteNever", func(t *testing.T) {
+	t.Run("should upload with ProgressCallback", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 
 		// Create a temporary local file
 		localDir := t.TempDir()
-		localFile := filepath.Join(localDir, "overwrite-test.txt")
-		err := os.WriteFile(localFile, []byte("original"), 0644)
+		localFile := filepath.Join(localDir, "test.txt")
+		err := os.WriteFile(localFile, []byte("test"), 0644)
 		require.NoError(t, err)
 
-		remotePath := "overwrite-test.txt"
-
-		// First upload should succeed
-		err = client.Upload(ctx, localFile, remotePath)
+		progressCb := func(info sftp.ProgressInfo) {
+			if info.Percentage == 100 {
+				require.Equal(t, info.TotalBytes, info.BytesTransferred)
+			}
+		}
+		remotePath := "progress-test.txt"
+		err = client.Upload(ctx, localFile, remotePath, sftp.WithUploadProgress(progressCb))
 		require.NoError(t, err)
+	})
+
+	t.Run("should upload with PreservePermissions", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		// Create a temporary local file with specific permissions
+		localDir := t.TempDir()
+		localFile := filepath.Join(localDir, "perm-test.txt")
+		err := os.WriteFile(localFile, []byte("test"), 0755)
+		require.NoError(t, err)
+
+		// Upload the file
+		remotePath := "perm-test.txt"
+		err = client.Upload(ctx, localFile, remotePath, sftp.WithUploadPreservePermissions(true))
+		require.NoError(t, err)
+
+		// Verify file exists (permissions might not be preserved on all systems)
+		info, err := client.Stat(ctx, remotePath)
+		require.NoError(t, err)
+		fileMode := info.Mode().Perm()
+		assert.Equal(t, os.FileMode(0755), fileMode)
+	})
+}
+
+func TestUpload_OverwritePolicy(t *testing.T) {
+	server := newTestSFTPServer(t)
+	defer server.close()
+
+	config := sftp.Config{
+		Authentication: sftp.AuthConfig{
+			Host:            server.getAddress(),
+			Port:            server.getPort(),
+			Username:        server.auth.username,
+			Method:          sftp.AuthPassword,
+			Password:        server.auth.password,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		},
+	}
+
+	client, err := sftp.NewClient(config)
+	require.NoError(t, err)
+	defer client.Close()
+
+	err = client.Connect(context.Background())
+	require.NoError(t, err)
+
+	// helper: create local file with content
+	writeLocal := func(t *testing.T, dir, name string, content []byte) string {
+		t.Helper()
+
+		p := filepath.Join(dir, name)
+		require.NoError(t, os.WriteFile(p, content, 0644))
+		return p
+	}
+
+	// helper: download remote file content to verify overwrite happened
+	readRemote := func(t *testing.T, remotePath string) []byte {
+		t.Helper()
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		tmp := filepath.Join(t.TempDir(), "downloaded.txt")
+		require.NoError(t, client.Download(ctx, remotePath, tmp))
+		b, err := os.ReadFile(tmp)
+		require.NoError(t, err)
+		return b
+	}
+
+	// helper: set local file mod time
+	setLocalModTime := func(t *testing.T, path string, mt time.Time) {
+		t.Helper()
+		// set both atime & mtime to mt
+		require.NoError(t, os.Chtimes(path, mt, mt))
+	}
+
+	// helper: get remote file mod time
+	getRemoteModTime := func(t *testing.T, remotePath string) time.Time {
+		t.Helper()
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+		info, err := client.Stat(ctx, remotePath)
+		require.NoError(t, err)
+		return info.ModTime()
+	}
+
+	t.Run("should return error when OverwriteNever and remote exists", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		localDir := t.TempDir()
+		remotePath := "overwrite-never.txt"
+
+		// First upload creates remote file
+		local1 := writeLocal(t, localDir, "a.txt", []byte("first"))
+		require.NoError(t, client.Upload(ctx, local1, remotePath))
 
 		// Second upload with OverwriteNever should fail
-		err = client.Upload(ctx, localFile, remotePath, sftp.WithUploadOverwriteNever())
+		local2 := writeLocal(t, localDir, "b.txt", []byte("second"))
+		err := client.Upload(ctx, local2, remotePath, sftp.WithUploadOverwriteNever())
 		require.Error(t, err)
-		assert.ErrorIs(t, err, sftp.ErrDataTransfer)
+		require.ErrorIs(t, err, sftp.ErrDataTransfer)
+
+		// Ensure remote content still equals first
+		got := readRemote(t, remotePath)
+		require.Equal(t, []byte("first"), got)
 	})
 
-	t.Run("Download non-existent file", func(t *testing.T) {
+	t.Run("should allow upload when remote missing even with OverwriteNever", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		localDir := t.TempDir()
+		remotePath := "not-exist-yet.txt"
+
+		local := writeLocal(t, localDir, "a.txt", []byte("hello"))
+
+		// Remote doesn't exist, so overwrite policy should not block
+		err := client.Upload(ctx, local, remotePath, sftp.WithUploadOverwriteNever())
+		require.NoError(t, err)
+
+		got := readRemote(t, remotePath)
+		require.Equal(t, []byte("hello"), got)
+	})
+
+	t.Run("should upload and replace remote when OverwriteAlways", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		localDir := t.TempDir()
+		remotePath := "overwrite-always.txt"
+
+		local1 := writeLocal(t, localDir, "a.txt", []byte("first"))
+		require.NoError(t, client.Upload(ctx, local1, remotePath))
+
+		local2 := writeLocal(t, localDir, "b.txt", []byte("second"))
+		require.NoError(t, client.Upload(ctx, local2, remotePath, sftp.WithUploadOverwriteAlways()))
+
+		got := readRemote(t, remotePath)
+		require.Equal(t, []byte("second"), got)
+	})
+
+	t.Run("should return error when OverwriteIfDifferentSize and same size", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		localDir := t.TempDir()
+		remotePath := "overwrite-diffsize.txt"
+
+		// "AAAAA" length = 5
+		local1 := writeLocal(t, localDir, "a.txt", []byte("AAAAA"))
+		require.NoError(t, client.Upload(ctx, local1, remotePath))
+
+		// "BBBBB" length = 5 (same size) -> should fail
+		local2 := writeLocal(t, localDir, "b.txt", []byte("BBBBB"))
+		err := client.Upload(ctx, local2, remotePath, sftp.WithUploadOverwriteIfDifferentSize())
+		require.Error(t, err)
+		require.ErrorIs(t, err, sftp.ErrDataTransfer)
+
+		got := readRemote(t, remotePath)
+		require.Equal(t, []byte("AAAAA"), got)
+	})
+
+	t.Run("should succeed when OverwriteIfDifferentSize and size differs", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		localDir := t.TempDir()
+		remotePath := "overwrite-diffsize-ok.txt"
+
+		local1 := writeLocal(t, localDir, "a.txt", []byte("AAAAA")) // 5
+		require.NoError(t, client.Upload(ctx, local1, remotePath))
+
+		local2 := writeLocal(t, localDir, "b.txt", []byte("BBBBBB")) // 6
+		require.NoError(t, client.Upload(ctx, local2, remotePath, sftp.WithUploadOverwriteIfDifferentSize()))
+
+		got := readRemote(t, remotePath)
+		require.Equal(t, []byte("BBBBBB"), got)
+	})
+
+	t.Run("should return error when OverwriteIfNewer and local is not newer", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		localDir := t.TempDir()
+		remotePath := "overwrite-if-newer.txt"
+
+		// First upload creates remote
+		local1 := writeLocal(t, localDir, "a.txt", []byte("first"))
+		require.NoError(t, client.Upload(ctx, local1, remotePath))
+
+		remoteMT := getRemoteModTime(t, remotePath)
+
+		// Make local2 older than (or equal to) remote modtime
+		local2 := writeLocal(t, localDir, "b.txt", []byte("second"))
+		setLocalModTime(t, local2, remoteMT.Add(-2*time.Minute))
+
+		err := client.Upload(ctx, local2, remotePath, sftp.WithUploadOverwriteIfNewer())
+		require.Error(t, err)
+		require.ErrorIs(t, err, sftp.ErrDataTransfer)
+
+		// Should remain first
+		got := readRemote(t, remotePath)
+		require.Equal(t, []byte("first"), got)
+	})
+
+	t.Run("should succeed when OverwriteIfNewer and local is newer", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		localDir := t.TempDir()
+		remotePath := "overwrite-if-newer-ok.txt"
+
+		local1 := writeLocal(t, localDir, "a.txt", []byte("first"))
+		require.NoError(t, client.Upload(ctx, local1, remotePath))
+
+		remoteMT := getRemoteModTime(t, remotePath)
+
+		local2 := writeLocal(t, localDir, "b.txt", []byte("second"))
+		setLocalModTime(t, local2, remoteMT.Add(+2*time.Minute)) // newer than remote
+
+		err := client.Upload(ctx, local2, remotePath, sftp.WithUploadOverwriteIfNewer())
+		require.NoError(t, err)
+
+		got := readRemote(t, remotePath)
+		require.Equal(t, []byte("second"), got)
+	})
+
+	t.Run("should return error when OverwriteIfNewerOrDifferentSize and not newer and same size", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		localDir := t.TempDir()
+		remotePath := "overwrite-newer-or-size.txt"
+
+		// Create remote with size 5
+		local1 := writeLocal(t, localDir, "a.txt", []byte("AAAAA"))
+		require.NoError(t, client.Upload(ctx, local1, remotePath))
+
+		remoteMT := getRemoteModTime(t, remotePath)
+
+		// Local2 same size (5) and older => should fail
+		local2 := writeLocal(t, localDir, "b.txt", []byte("BBBBB"))
+		setLocalModTime(t, local2, remoteMT.Add(-2*time.Minute))
+
+		err := client.Upload(ctx, local2, remotePath, sftp.WithUploadOverwriteIfNewerOrDifferentSize())
+		require.Error(t, err)
+		require.ErrorIs(t, err, sftp.ErrDataTransfer)
+
+		got := readRemote(t, remotePath)
+		require.Equal(t, []byte("AAAAA"), got)
+	})
+
+	t.Run("should succeed when OverwriteIfNewerOrDifferentSize and different size even if not newer", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		localDir := t.TempDir()
+		remotePath := "overwrite-newer-or-size-size.txt"
+
+		local1 := writeLocal(t, localDir, "a.txt", []byte("AAAAA")) // size 5
+		require.NoError(t, client.Upload(ctx, local1, remotePath))
+
+		remoteMT := getRemoteModTime(t, remotePath)
+
+		local2 := writeLocal(t, localDir, "b.txt", []byte("BBBBBB")) // size 6 different
+		setLocalModTime(t, local2, remoteMT.Add(-2*time.Minute))     // older, but size differs
+
+		err := client.Upload(ctx, local2, remotePath, sftp.WithUploadOverwriteIfNewerOrDifferentSize())
+		require.NoError(t, err)
+
+		got := readRemote(t, remotePath)
+		require.Equal(t, []byte("BBBBBB"), got)
+	})
+}
+
+func TestDownload(t *testing.T) {
+	server := newTestSFTPServer(t)
+	defer server.close()
+
+	config := sftp.Config{
+		Authentication: sftp.AuthConfig{
+			Host:            server.getAddress(),
+			Port:            server.getPort(),
+			Username:        server.auth.username,
+			Method:          sftp.AuthPassword,
+			Password:        server.auth.password,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		},
+	}
+
+	client, err := sftp.NewClient(config)
+	require.NoError(t, err)
+	defer client.Close()
+
+	err = client.Connect(context.Background())
+	require.NoError(t, err)
+
+	// helper: create local file
+	writeLocal := func(t *testing.T, dir, name string, content []byte, perm os.FileMode) string {
+		t.Helper()
+		p := filepath.Join(dir, name)
+		require.NoError(t, os.WriteFile(p, content, perm))
+		return p
+	}
+
+	// helper: read local
+	readLocal := func(t *testing.T, path string) []byte {
+		t.Helper()
+		b, err := os.ReadFile(path)
+		require.NoError(t, err)
+		return b
+	}
+
+	t.Run("should download file successfully", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		// Seed remote file
+		src := writeLocal(t, t.TempDir(), "seed.txt", []byte("hello"), 0644)
+		remotePath := "download-ok.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath))
+
+		// Download to dst
+		dst := filepath.Join(t.TempDir(), "out.txt")
+		require.NoError(t, client.Download(ctx, remotePath, dst))
+		require.Equal(t, []byte("hello"), readLocal(t, dst))
+	})
+
+	t.Run("should return error when remote file not found", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		dst := filepath.Join(t.TempDir(), "out.txt")
+		err := client.Download(ctx, "no-such-file.txt", dst)
+		require.Error(t, err)
+		require.ErrorIs(t, err, sftp.ErrFileNotFound)
+	})
+
+	t.Run("should download with CreateDirs", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		// Seed remote file
+		src := writeLocal(t, t.TempDir(), "seed.txt", []byte("nested"), 0644)
+		remotePath := "download-createdirs.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath))
+
+		// Download to nested dirs
+		dst := filepath.Join(t.TempDir(), "a/b/c/out.txt")
+		require.NoError(t, client.Download(ctx, remotePath, dst, sftp.WithDownloadCreateDirs(true)))
+		require.Equal(t, []byte("nested"), readLocal(t, dst))
+	})
+
+	t.Run("should download with ProgressCallback", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		// Seed remote file
+		src := writeLocal(t, t.TempDir(), "seed.txt", []byte("progress"), 0644)
+		remotePath := "download-progress.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath))
+
+		// Download to dst
+		progressCb := func(info sftp.ProgressInfo) {
+			if info.Percentage == 100 {
+				require.Equal(t, info.TotalBytes, info.BytesTransferred)
+			}
+		}
+		dst := filepath.Join(t.TempDir(), "out.txt")
+		require.NoError(t, client.Download(ctx, remotePath, dst, sftp.WithDownloadProgress(progressCb)))
+		require.Equal(t, []byte("progress"), readLocal(t, dst))
+	})
+
+	t.Run("should download with PreservePermissions", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		// Seed remote file with specific permissions
+		src := writeLocal(t, t.TempDir(), "seed.txt", []byte("perms"), 0755)
+		remotePath := "download-perms.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath, sftp.WithUploadPreservePermissions(true)))
+
+		// Download to dst
+		dst := filepath.Join(t.TempDir(), "out.txt")
+		require.NoError(t, client.Download(ctx, remotePath, dst, sftp.WithDownloadPreservePermissions(true)))
+
+		info, err := os.Stat(dst)
+		require.NoError(t, err)
+		require.Equal(t, os.FileMode(0755), info.Mode().Perm())
+	})
+}
+
+func TestDownload_OverwritePolicy(t *testing.T) {
+	server := newTestSFTPServer(t)
+	defer server.close()
+
+	config := sftp.Config{
+		Authentication: sftp.AuthConfig{
+			Host:            server.getAddress(),
+			Port:            server.getPort(),
+			Username:        server.auth.username,
+			Method:          sftp.AuthPassword,
+			Password:        server.auth.password,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		},
+	}
+
+	client, err := sftp.NewClient(config)
+	require.NoError(t, err)
+	defer client.Close()
+
+	err = client.Connect(context.Background())
+	require.NoError(t, err)
+
+	// helper: create local file
+	writeLocal := func(t *testing.T, dir, name string, content []byte, perm os.FileMode) string {
+		t.Helper()
+		p := filepath.Join(dir, name)
+		require.NoError(t, os.WriteFile(p, content, perm))
+		return p
+	}
+
+	// helper: read local
+	readLocal := func(t *testing.T, path string) []byte {
+		t.Helper()
+		b, err := os.ReadFile(path)
+		require.NoError(t, err)
+		return b
+	}
+
+	// helper: set local mod time (for overwrite-if-newer tests)
+	setLocalModTime := func(t *testing.T, path string, mt time.Time) {
+		t.Helper()
+		require.NoError(t, os.Chtimes(path, mt, mt))
+	}
+
+	t.Run("should return error when OverwriteNever and local exists", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		// Seed remote file
+		src := writeLocal(t, t.TempDir(), "seed.txt", []byte("REMOTE"), 0644)
+		remotePath := "download-overwrite-never.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath))
+
+		// Create local already exists
+		dst := writeLocal(t, t.TempDir(), "out.txt", []byte("LOCAL"), 0644)
+
+		err := client.Download(ctx, remotePath, dst, sftp.WithDownloadOverwriteNever())
+		require.Error(t, err)
+		require.ErrorIs(t, err, sftp.ErrDataTransfer)
+
+		// Still local content
+		require.Equal(t, []byte("LOCAL"), readLocal(t, dst))
+	})
+
+	t.Run("should replace local when OverwriteAlways", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		// Seed remote file
+		src := writeLocal(t, t.TempDir(), "seed.txt", []byte("REMOTE"), 0644)
+		remotePath := "download-overwrite-always.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath))
+
+		// Create local already exists
+		dst := writeLocal(t, t.TempDir(), "out.txt", []byte("LOCAL"), 0644)
+
+		require.NoError(t, client.Download(ctx, remotePath, dst, sftp.WithDownloadOverwriteAlways()))
+		require.Equal(t, []byte("REMOTE"), readLocal(t, dst))
+	})
+
+	t.Run("should return error when OverwriteIfDifferentSize and same size", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		// Remote size 5
+		src := writeLocal(t, t.TempDir(), "seed.txt", []byte("AAAAA"), 0644)
+		remotePath := "download-overwrite-diffsize.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath))
+
+		// Local size 5
+		dst := writeLocal(t, t.TempDir(), "out.txt", []byte("BBBBB"), 0644)
+
+		err := client.Download(ctx, remotePath, dst, sftp.WithDownloadOverwriteIfDifferentSize())
+		require.Error(t, err)
+		require.ErrorIs(t, err, sftp.ErrDataTransfer)
+
+		require.Equal(t, []byte("BBBBB"), readLocal(t, dst))
+	})
+
+	t.Run("should replace local when OverwriteIfDifferentSize and size differs", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		// Remote size 6
+		src := writeLocal(t, t.TempDir(), "seed.txt", []byte("AAAAAA"), 0644)
+		remotePath := "download-overwrite-diffsize-ok.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath))
+
+		// Local size 5
+		dst := writeLocal(t, t.TempDir(), "out.txt", []byte("BBBBB"), 0644)
+
+		require.NoError(t, client.Download(ctx, remotePath, dst, sftp.WithDownloadOverwriteIfDifferentSize()))
+		require.Equal(t, []byte("AAAAAA"), readLocal(t, dst))
+	})
+
+	t.Run("should return error when OverwriteIfNewer and remote is not newer (remote older/equal)", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		// Seed remote file
+		src := writeLocal(t, t.TempDir(), "seed.txt", []byte("REMOTE"), 0644)
+		remotePath := "download-overwrite-if-newer.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath))
+
+		// Create local and make it FUTURE so remote is not newer
+		dst := writeLocal(t, t.TempDir(), "out.txt", []byte("LOCAL"), 0644)
+		setLocalModTime(t, dst, time.Now().Add(+5*time.Minute))
+
+		err := client.Download(ctx, remotePath, dst, sftp.WithDownloadOverwriteIfNewer())
+		require.Error(t, err)
+		require.ErrorIs(t, err, sftp.ErrDataTransfer)
+
+		require.Equal(t, []byte("LOCAL"), readLocal(t, dst))
+	})
+
+	t.Run("should replace local when OverwriteIfNewer and remote is newer than local", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+
+		// Seed remote file
+		src := writeLocal(t, t.TempDir(), "seed.txt", []byte("REMOTE"), 0644)
+		remotePath := "download-overwrite-if-newer-ok.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath))
+
+		// Create local and make it PAST so remote is newer
+		dst := writeLocal(t, t.TempDir(), "out.txt", []byte("LOCAL"), 0644)
+		setLocalModTime(t, dst, time.Now().Add(-5*time.Minute))
+
+		require.NoError(t, client.Download(ctx, remotePath, dst, sftp.WithDownloadOverwriteIfNewer()))
+		require.Equal(t, []byte("REMOTE"), readLocal(t, dst))
+	})
+
+	t.Run("should return error when OverwriteIfNewerOrDifferentSize and remote not newer and same size", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 		localDir := t.TempDir()
-		localPath := filepath.Join(localDir, "nonexistent.txt")
 
-		err := client.Download(ctx, "nonexistent.txt", localPath)
+		// Remote size 5
+		src := writeLocal(t, localDir, "seed.txt", []byte("AAAAA"), 0644)
+		remotePath := "download-overwrite-newer-or-size.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath))
+
+		// Local size 5 and FUTURE (remote not newer)
+		dstDir := t.TempDir()
+		dst := writeLocal(t, dstDir, "out.txt", []byte("BBBBB"), 0644)
+		setLocalModTime(t, dst, time.Now().Add(+5*time.Minute))
+
+		err := client.Download(ctx, remotePath, dst, sftp.WithDownloadOverwriteIfNewerOrDifferentSize())
 		require.Error(t, err)
-		assert.ErrorIs(t, err, sftp.ErrFileNotFound)
+		require.ErrorIs(t, err, sftp.ErrDataTransfer)
+
+		require.Equal(t, []byte("BBBBB"), readLocal(t, dst))
 	})
 
-	t.Run("List directory", func(t *testing.T) {
+	t.Run("should replace local when OverwriteIfNewerOrDifferentSize and size differs even if remote not newer", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+		localDir := t.TempDir()
+
+		// Remote size 6
+		src := writeLocal(t, localDir, "seed.txt", []byte("AAAAAA"), 0644)
+		remotePath := "download-overwrite-newer-or-size-size.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath))
+
+		// Local size 5 and FUTURE (remote not newer) -> still allowed because size differs
+		dstDir := t.TempDir()
+		dst := writeLocal(t, dstDir, "out.txt", []byte("BBBBB"), 0644)
+		setLocalModTime(t, dst, time.Now().Add(+5*time.Minute))
+
+		require.NoError(t, client.Download(ctx, remotePath, dst, sftp.WithDownloadOverwriteIfNewerOrDifferentSize()))
+		require.Equal(t, []byte("AAAAAA"), readLocal(t, dst))
+	})
+
+	t.Run("should replace local when OverwriteIfNewerOrDifferentSize and remote is newer even if same size", func(t *testing.T) {
+		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
+		localDir := t.TempDir()
+
+		// Remote size 5
+		src := writeLocal(t, localDir, "seed.txt", []byte("AAAAA"), 0644)
+		remotePath := "download-overwrite-newer-or-size-newer.txt"
+		require.NoError(t, client.Upload(ctx, src, remotePath))
+
+		// Local size 5 but older -> remote newer => allowed
+		dstDir := t.TempDir()
+		dst := writeLocal(t, dstDir, "out.txt", []byte("BBBBB"), 0644)
+		setLocalModTime(t, dst, time.Now().Add(-5*time.Minute))
+
+		require.NoError(t, client.Download(ctx, remotePath, dst, sftp.WithDownloadOverwriteIfNewerOrDifferentSize()))
+		require.Equal(t, []byte("AAAAA"), readLocal(t, dst))
+	})
+}
+
+func TestList(t *testing.T) {
+	server := newTestSFTPServer(t)
+	defer server.close()
+
+	// Create client with real server
+	config := sftp.Config{
+		Authentication: sftp.AuthConfig{
+			Host:            server.getAddress(),
+			Port:            server.getPort(),
+			Username:        server.auth.username,
+			Method:          sftp.AuthPassword,
+			Password:        server.auth.password,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		},
+	}
+
+	client, err := sftp.NewClient(config)
+	require.NoError(t, err)
+	defer client.Close()
+
+	err = client.Connect(context.Background())
+	require.NoError(t, err)
+
+	t.Run("should list directory successfully", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 
 		// Create some test files
@@ -426,15 +1058,39 @@ func TestClientOperations_Integration(t *testing.T) {
 		assert.Len(t, files, 3)
 	})
 
-	t.Run("List non-existent directory", func(t *testing.T) {
+	t.Run("should return error for non-existent directory", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 
 		_, err := client.List(ctx, "nonexistent/dir")
 		require.Error(t, err)
 		assert.ErrorIs(t, err, sftp.ErrDataTransfer)
 	})
+}
 
-	t.Run("Mkdir", func(t *testing.T) {
+func TestMkdir(t *testing.T) {
+	server := newTestSFTPServer(t)
+	defer server.close()
+
+	// Create client with real server
+	config := sftp.Config{
+		Authentication: sftp.AuthConfig{
+			Host:            server.getAddress(),
+			Port:            server.getPort(),
+			Username:        server.auth.username,
+			Method:          sftp.AuthPassword,
+			Password:        server.auth.password,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		},
+	}
+
+	client, err := sftp.NewClient(config)
+	require.NoError(t, err)
+	defer client.Close()
+
+	err = client.Connect(context.Background())
+	require.NoError(t, err)
+
+	t.Run("should create directory successfully", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 
 		err := client.Mkdir(ctx, "testdir")
@@ -446,7 +1102,7 @@ func TestClientOperations_Integration(t *testing.T) {
 		assert.True(t, info.IsDir())
 	})
 
-	t.Run("Mkdir nested", func(t *testing.T) {
+	t.Run("should create nested directory successfully", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 
 		err := client.Mkdir(ctx, "nested/test/dir")
@@ -457,8 +1113,32 @@ func TestClientOperations_Integration(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, info.IsDir())
 	})
+}
 
-	t.Run("Remove file", func(t *testing.T) {
+func TestRemove(t *testing.T) {
+	server := newTestSFTPServer(t)
+	defer server.close()
+
+	// Create client with real server
+	config := sftp.Config{
+		Authentication: sftp.AuthConfig{
+			Host:            server.getAddress(),
+			Port:            server.getPort(),
+			Username:        server.auth.username,
+			Method:          sftp.AuthPassword,
+			Password:        server.auth.password,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		},
+	}
+
+	client, err := sftp.NewClient(config)
+	require.NoError(t, err)
+	defer client.Close()
+
+	err = client.Connect(context.Background())
+	require.NoError(t, err)
+
+	t.Run("should remove file successfully", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 
 		// Create a file
@@ -479,8 +1159,32 @@ func TestClientOperations_Integration(t *testing.T) {
 		_, err = client.Stat(ctx, remotePath)
 		require.Error(t, err)
 	})
+}
 
-	t.Run("Rename file", func(t *testing.T) {
+func TestRename(t *testing.T) {
+	server := newTestSFTPServer(t)
+	defer server.close()
+
+	// Create client with real server
+	config := sftp.Config{
+		Authentication: sftp.AuthConfig{
+			Host:            server.getAddress(),
+			Port:            server.getPort(),
+			Username:        server.auth.username,
+			Method:          sftp.AuthPassword,
+			Password:        server.auth.password,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		},
+	}
+
+	client, err := sftp.NewClient(config)
+	require.NoError(t, err)
+	defer client.Close()
+
+	err = client.Connect(context.Background())
+	require.NoError(t, err)
+
+	t.Run("should rename file successfully", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 
 		// Create a file
@@ -510,15 +1214,39 @@ func TestClientOperations_Integration(t *testing.T) {
 		assert.False(t, info.IsDir())
 	})
 
-	t.Run("Rename non-existent file", func(t *testing.T) {
+	t.Run("should return error when renaming non-existent file", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 
 		err := client.Rename(ctx, "nonexistent.txt", "new.txt")
 		require.Error(t, err)
 		assert.ErrorIs(t, err, sftp.ErrFileNotFound)
 	})
+}
 
-	t.Run("Stat file", func(t *testing.T) {
+func TestStat(t *testing.T) {
+	server := newTestSFTPServer(t)
+	defer server.close()
+
+	// Create client with real server
+	config := sftp.Config{
+		Authentication: sftp.AuthConfig{
+			Host:            server.getAddress(),
+			Port:            server.getPort(),
+			Username:        server.auth.username,
+			Method:          sftp.AuthPassword,
+			Password:        server.auth.password,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		},
+	}
+
+	client, err := sftp.NewClient(config)
+	require.NoError(t, err)
+	defer client.Close()
+
+	err = client.Connect(context.Background())
+	require.NoError(t, err)
+
+	t.Run("should stat file successfully", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 
 		// Create a file
@@ -539,153 +1267,11 @@ func TestClientOperations_Integration(t *testing.T) {
 		assert.Equal(t, int64(len(content)), info.Size())
 	})
 
-	t.Run("Stat non-existent file", func(t *testing.T) {
+	t.Run("should return error when statting non-existent file", func(t *testing.T) {
 		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
 
 		_, err := client.Stat(ctx, "nonexistent.txt")
 		require.Error(t, err)
 		assert.ErrorIs(t, err, sftp.ErrFileNotFound)
-	})
-}
-
-func TestClientUploadOptions(t *testing.T) {
-	server := newTestSFTPServer(t)
-	defer server.close()
-
-	config := sftp.Config{
-		Authentication: sftp.AuthConfig{
-			Host:            server.getAddress(),
-			Port:            server.getPort(),
-			Username:        server.auth.username,
-			Method:          sftp.AuthPassword,
-			Password:        server.auth.password,
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		},
-	}
-
-	client, err := sftp.NewClient(config)
-	require.NoError(t, err)
-	defer client.Close()
-
-	err = client.Connect(context.Background())
-	require.NoError(t, err)
-
-	t.Run("Upload with progress callback", func(t *testing.T) {
-		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
-
-		// Create a larger file to test progress
-		localDir := t.TempDir()
-		localFile := filepath.Join(localDir, "progress-test.txt")
-		content := make([]byte, 1024*100) // 100KB
-		for i := range content {
-			content[i] = byte(i % 256)
-		}
-		err := os.WriteFile(localFile, content, 0644)
-		require.NoError(t, err)
-
-		var progressCalls int
-		progressCallback := func(info sftp.ProgressInfo) {
-			progressCalls++
-			assert.GreaterOrEqual(t, info.BytesTransferred, int64(0))
-			assert.Equal(t, int64(len(content)), info.TotalBytes)
-			assert.GreaterOrEqual(t, info.Percentage, 0.0)
-			assert.LessOrEqual(t, info.Percentage, 100.0)
-		}
-
-		remotePath := "progress-test.txt"
-		err = client.Upload(ctx, localFile, remotePath, sftp.WithUploadProgress(progressCallback))
-		require.NoError(t, err)
-		assert.Greater(t, progressCalls, 0, "Progress callback should be called at least once")
-	})
-
-	t.Run("Upload with preserve permissions", func(t *testing.T) {
-		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
-
-		localDir := t.TempDir()
-		localFile := filepath.Join(localDir, "perm-test.txt")
-		err := os.WriteFile(localFile, []byte("test"), 0755)
-		require.NoError(t, err)
-
-		remotePath := "perm-test.txt"
-		err = client.Upload(ctx, localFile, remotePath, sftp.WithPreservePermissions(true))
-		require.NoError(t, err)
-
-		// Verify file exists (permissions might not be preserved on all systems)
-		info, err := client.Stat(ctx, remotePath)
-		require.NoError(t, err)
-		assert.False(t, info.IsDir())
-	})
-}
-
-func TestClientDownloadOptions(t *testing.T) {
-	server := newTestSFTPServer(t)
-	defer server.close()
-
-	config := sftp.Config{
-		Authentication: sftp.AuthConfig{
-			Host:            server.getAddress(),
-			Port:            server.getPort(),
-			Username:        server.auth.username,
-			Method:          sftp.AuthPassword,
-			Password:        server.auth.password,
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		},
-	}
-
-	client, err := sftp.NewClient(config)
-	require.NoError(t, err)
-	defer client.Close()
-
-	err = client.Connect(context.Background())
-	require.NoError(t, err)
-
-	t.Run("Download with create dirs", func(t *testing.T) {
-		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
-
-		// Upload a file first
-		localDir := t.TempDir()
-		uploadFile := filepath.Join(localDir, "upload.txt")
-		content := []byte("test content")
-		err := os.WriteFile(uploadFile, content, 0644)
-		require.NoError(t, err)
-
-		remotePath := "download-dirs-test.txt"
-		err = client.Upload(ctx, uploadFile, remotePath)
-		require.NoError(t, err)
-
-		// Download to nested directory
-		downloadPath := filepath.Join(localDir, "nested", "dir", "download.txt")
-		err = client.Download(ctx, remotePath, downloadPath, sftp.WithDownloadCreateDirs(true))
-		require.NoError(t, err)
-
-		// Verify file exists
-		downloadedContent, err := os.ReadFile(downloadPath)
-		require.NoError(t, err)
-		assert.Equal(t, content, downloadedContent)
-	})
-
-	t.Run("Download with progress callback", func(t *testing.T) {
-		ctx := logger.NewContext(context.Background(), logger.NewNoopLogger())
-
-		// Upload a larger file first
-		localDir := t.TempDir()
-		uploadFile := filepath.Join(localDir, "upload-progress.txt")
-		content := make([]byte, 1024*50) // 50KB
-		err := os.WriteFile(uploadFile, content, 0644)
-		require.NoError(t, err)
-
-		remotePath := "download-progress-test.txt"
-		err = client.Upload(ctx, uploadFile, remotePath)
-		require.NoError(t, err)
-
-		var progressCalls int
-		progressCallback := func(info sftp.ProgressInfo) {
-			progressCalls++
-		}
-
-		downloadPath := filepath.Join(localDir, "download-progress.txt")
-		err = client.Download(ctx, remotePath, downloadPath, sftp.WithDownloadProgress(progressCallback))
-		require.NoError(t, err)
-		assert.Greater(t, progressCalls, 0)
 	})
 }

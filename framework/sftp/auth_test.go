@@ -17,7 +17,7 @@ import (
 // TestPasswordAuthHandler tests password authentication functionality
 func TestPasswordAuthHandler(t *testing.T) {
 	t.Run("TestNewPasswordAuthHandler", func(t *testing.T) {
-		t.Run("Valid Credentials", func(t *testing.T) {
+		t.Run("should create handler with valid username and password", func(t *testing.T) {
 			handler := sftp.NewPasswordAuthHandler("testuser", "testpass")
 			err := handler.ValidateCredentials()
 			require.NoError(t, err)
@@ -28,13 +28,13 @@ func TestPasswordAuthHandler(t *testing.T) {
 			assert.Len(t, methods, 1)
 		})
 
-		t.Run("Empty Username", func(t *testing.T) {
+		t.Run("should return error for empty username", func(t *testing.T) {
 			handler := sftp.NewPasswordAuthHandler("", "testpass")
 			err := handler.ValidateCredentials()
 			require.ErrorIs(t, err, sftp.ErrAuthentication)
 		})
 
-		t.Run("Empty Password", func(t *testing.T) {
+		t.Run("should return error for empty password", func(t *testing.T) {
 			handler := sftp.NewPasswordAuthHandler("testuser", "")
 			err := handler.ValidateCredentials()
 			require.ErrorIs(t, err, sftp.ErrAuthentication)
@@ -47,7 +47,7 @@ func TestPrivateKeyAuthHandler(t *testing.T) {
 	t.Run("NewPrivateKeyAuthHandlerWithData", func(t *testing.T) {
 		validPrivateKey := mustGenRSAPrivateKeyPEM(t, 2048)
 
-		t.Run("Valid Key Data", func(t *testing.T) {
+		t.Run("should create handler with valid key data", func(t *testing.T) {
 			handler := sftp.NewPrivateKeyAuthHandlerWithData("testuser", validPrivateKey, "")
 			err := handler.ValidateCredentials()
 			require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestPrivateKeyAuthHandler(t *testing.T) {
 			assert.Len(t, methods, 1)
 		})
 
-		t.Run("Valid Key Data With Passphrase", func(t *testing.T) {
+		t.Run("should create handler with valid key data and passphrase", func(t *testing.T) {
 			passphrase := "testpassphrase"
 			encryptedKey := mustGenEncryptedRSAPrivateKeyPEM(t, 2048, passphrase)
 
@@ -72,13 +72,13 @@ func TestPrivateKeyAuthHandler(t *testing.T) {
 			assert.Len(t, methods, 1)
 		})
 
-		t.Run("Empty Username", func(t *testing.T) {
+		t.Run("should return error for empty username", func(t *testing.T) {
 			handler := sftp.NewPrivateKeyAuthHandlerWithData("", validPrivateKey, "")
 			err := handler.ValidateCredentials()
 			require.ErrorIs(t, err, sftp.ErrAuthentication)
 		})
 
-		t.Run("Valid Key Data With Incorrect Passphrase", func(t *testing.T) {
+		t.Run("should return error for valid key data with incorrect passphrase", func(t *testing.T) {
 			handler := sftp.NewPrivateKeyAuthHandlerWithData("testuser", validPrivateKey, "testpassphrase")
 			err := handler.ValidateCredentials()
 			require.NoError(t, err)
@@ -88,13 +88,13 @@ func TestPrivateKeyAuthHandler(t *testing.T) {
 			assert.ErrorIs(t, err, sftp.ErrAuthentication)
 		})
 
-		t.Run("Empty Key Data", func(t *testing.T) {
+		t.Run("should return error for empty key data", func(t *testing.T) {
 			handler := sftp.NewPrivateKeyAuthHandlerWithData("testuser", []byte{}, "")
 			err := handler.ValidateCredentials()
 			require.ErrorIs(t, err, sftp.ErrAuthentication)
 		})
 
-		t.Run("Invalid Key Format", func(t *testing.T) {
+		t.Run("should return error for invalid key format", func(t *testing.T) {
 			handler := sftp.NewPrivateKeyAuthHandlerWithData("testuser", []byte("invalid key data"), "")
 			// ValidateCredentials only checks username and key existence, not format
 			err := handler.ValidateCredentials()
@@ -105,7 +105,7 @@ func TestPrivateKeyAuthHandler(t *testing.T) {
 			require.ErrorIs(t, err, sftp.ErrAuthentication)
 		})
 
-		t.Run("Invalid PEM Format", func(t *testing.T) {
+		t.Run("should return error for invalid PEM format", func(t *testing.T) {
 			invalidPEM := []byte(`-----BEGIN RSA PRIVATE KEY-----
 	INVALID-PEM-DATA
 	-----END RSA PRIVATE KEY-----`)
@@ -123,7 +123,7 @@ func TestPrivateKeyAuthHandler(t *testing.T) {
 	t.Run("TestPrivateKeyPath", func(t *testing.T) {
 		validPrivateKey := mustGenRSAPrivateKeyPEM(t, 2048)
 
-		t.Run("Valid Key File Path", func(t *testing.T) {
+		t.Run("should create handler with valid key file path", func(t *testing.T) {
 			tmpFile := mustWriteTempFile(t, "test-key.pem", validPrivateKey)
 
 			handler := sftp.NewPrivateKeyAuthHandler("testuser", tmpFile, "")
@@ -136,7 +136,7 @@ func TestPrivateKeyAuthHandler(t *testing.T) {
 			assert.Len(t, methods, 1)
 		})
 
-		t.Run("Valid Key File Path With Passphrase", func(t *testing.T) {
+		t.Run("should create handler with valid key file path and passphrase", func(t *testing.T) {
 			passphrase := "testpassphrase"
 			encryptedKey := mustGenEncryptedRSAPrivateKeyPEM(t, 2048, passphrase)
 			tmpFile := mustWriteTempFile(t, "test-key-encrypted.pem", encryptedKey)
@@ -151,7 +151,7 @@ func TestPrivateKeyAuthHandler(t *testing.T) {
 			assert.Len(t, methods, 1)
 		})
 
-		t.Run("Empty Username", func(t *testing.T) {
+		t.Run("should return error for empty username", func(t *testing.T) {
 			tmpFile := mustWriteTempFile(t, "test-key.pem", validPrivateKey)
 
 			handler := sftp.NewPrivateKeyAuthHandler("", tmpFile, "")
@@ -159,7 +159,7 @@ func TestPrivateKeyAuthHandler(t *testing.T) {
 			require.ErrorIs(t, err, sftp.ErrAuthentication)
 		})
 
-		t.Run("Valid Key File Path With Incorrect Passphrase", func(t *testing.T) {
+		t.Run("should return error for valid key file path with incorrect passphrase", func(t *testing.T) {
 			tmpFile := mustWriteTempFile(t, "test-key.pem", validPrivateKey)
 
 			handler := sftp.NewPrivateKeyAuthHandler("testuser", tmpFile, "testpassphrase")
@@ -171,19 +171,19 @@ func TestPrivateKeyAuthHandler(t *testing.T) {
 			assert.ErrorIs(t, err, sftp.ErrAuthentication)
 		})
 
-		t.Run("Empty Key File Path", func(t *testing.T) {
+		t.Run("should return error for empty key file path", func(t *testing.T) {
 			handler := sftp.NewPrivateKeyAuthHandler("testuser", "", "")
 			err := handler.ValidateCredentials()
 			require.ErrorIs(t, err, sftp.ErrAuthentication)
 		})
 
-		t.Run("Non-Existent Key File", func(t *testing.T) {
+		t.Run("should return error for non-existent key file", func(t *testing.T) {
 			handler := sftp.NewPrivateKeyAuthHandler("testuser", "/non/existent/path/key.pem", "")
 			err := handler.ValidateCredentials()
 			require.ErrorIs(t, err, sftp.ErrAuthentication)
 		})
 
-		t.Run("Invalid Key File Content", func(t *testing.T) {
+		t.Run("should return error for invalid key file content", func(t *testing.T) {
 			tmpFile := mustWriteTempFile(t, "test-key.pem", []byte("invalid key content"))
 
 			handler := sftp.NewPrivateKeyAuthHandler("testuser", tmpFile, "")
@@ -195,7 +195,7 @@ func TestPrivateKeyAuthHandler(t *testing.T) {
 			require.ErrorIs(t, err, sftp.ErrAuthentication)
 		})
 
-		t.Run("Invalid PEM File Content", func(t *testing.T) {
+		t.Run("should return error for invalid PEM file content", func(t *testing.T) {
 			invalidPEM := []byte(`-----BEGIN RSA PRIVATE KEY-----
 		INVALID-PEM-DATA
 		-----END RSA PRIVATE KEY-----`)
@@ -216,7 +216,7 @@ func TestPrivateKeyAuthHandler(t *testing.T) {
 func TestCreateAuthHandler(t *testing.T) {
 	t.Run("TestCreateAuthHandlerFactory", func(t *testing.T) {
 
-		t.Run("Password Auth Missing Host", func(t *testing.T) {
+		t.Run("should return error for password auth missing host", func(t *testing.T) {
 			authConfig := sftp.AuthConfig{
 				Username: "testuser",
 				Method:   sftp.AuthPassword,
@@ -227,7 +227,7 @@ func TestCreateAuthHandler(t *testing.T) {
 			require.ErrorIs(t, err, sftp.ErrConfiguration)
 		})
 
-		t.Run("Password Auth Missing Username", func(t *testing.T) {
+		t.Run("should return error for password auth missing username", func(t *testing.T) {
 			authConfig := sftp.AuthConfig{
 				Host:     "localhost",
 				Method:   sftp.AuthPassword,
@@ -238,7 +238,7 @@ func TestCreateAuthHandler(t *testing.T) {
 			require.ErrorIs(t, err, sftp.ErrConfiguration)
 		})
 
-		t.Run("Password Auth", func(t *testing.T) {
+		t.Run("should create handler for password auth", func(t *testing.T) {
 			authConfig := sftp.AuthConfig{
 				Host:     "localhost",
 				Username: "testuser",
@@ -250,7 +250,7 @@ func TestCreateAuthHandler(t *testing.T) {
 			require.NotNil(t, handler)
 		})
 
-		t.Run("Password Auth Missing Password", func(t *testing.T) {
+		t.Run("should return error for password auth missing password", func(t *testing.T) {
 			authConfig := sftp.AuthConfig{
 				Host:     "localhost",
 				Username: "testuser",
@@ -261,7 +261,7 @@ func TestCreateAuthHandler(t *testing.T) {
 			require.ErrorIs(t, err, sftp.ErrAuthentication)
 		})
 
-		t.Run("Private Key Auth Missing Key", func(t *testing.T) {
+		t.Run("should return error for private key auth missing key", func(t *testing.T) {
 			authConfig := sftp.AuthConfig{
 				Host:     "localhost",
 				Username: "testuser",
@@ -272,7 +272,7 @@ func TestCreateAuthHandler(t *testing.T) {
 			require.ErrorIs(t, err, sftp.ErrAuthentication)
 		})
 
-		t.Run("Private Key Auth With Key Data", func(t *testing.T) {
+		t.Run("should create handler for private key auth with key data", func(t *testing.T) {
 			validPrivateKey := mustGenRSAPrivateKeyPEM(t, 2048)
 			authConfig := sftp.AuthConfig{
 				Host:           "localhost",
@@ -285,7 +285,7 @@ func TestCreateAuthHandler(t *testing.T) {
 			require.NotNil(t, handler)
 		})
 
-		t.Run("Private Key Auth With Key Path", func(t *testing.T) {
+		t.Run("should create handler for private key auth with key path", func(t *testing.T) {
 			authConfig := sftp.AuthConfig{
 				Host:           "localhost",
 				Username:       "testuser",
@@ -297,7 +297,7 @@ func TestCreateAuthHandler(t *testing.T) {
 			require.NotNil(t, handler)
 		})
 
-		t.Run("Unsupported Auth Method", func(t *testing.T) {
+		t.Run("should return error for unsupported auth method", func(t *testing.T) {
 			authConfig := sftp.AuthConfig{
 				Host:     "localhost",
 				Username: "testuser",

@@ -64,7 +64,7 @@ func main() {
 
 	// Upload a local file to the SFTP server with progress reporting and automatic directory creation
 	err = client.Upload(context.Background(), "README.md", "/upload/remotefile.txt",
-		sftp.WithCreateDirs(true),
+		sftp.WithUploadCreateDirs(true),
 		sftp.WithUploadProgress(func(info sftp.ProgressInfo) {
 			fmt.Printf("Uploaded %d/%d bytes\n", info.BytesTransferred, info.TotalBytes)
 		}),

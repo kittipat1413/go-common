@@ -19,13 +19,10 @@ import (
 )
 
 func TestNewConnectionManager(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	tests := []struct {
 		name        string
 		config      sftp.Config
-		authHandler sftp.AuthenticationHandler
+		authHandler func(ctrl *gomock.Controller) sftp.AuthenticationHandler
 		expectError bool
 		errorType   error
 	}{
@@ -51,7 +48,9 @@ func TestNewConnectionManager(t *testing.T) {
 					},
 				},
 			},
-			authHandler: sftp_mocks.NewMockAuthenticationHandler(ctrl),
+			authHandler: func(ctrl *gomock.Controller) sftp.AuthenticationHandler {
+				return sftp_mocks.NewMockAuthenticationHandler(ctrl)
+			},
 			expectError: false,
 		},
 		{
@@ -63,7 +62,9 @@ func TestNewConnectionManager(t *testing.T) {
 					Username: "testuser",
 				},
 			},
-			authHandler: nil,
+			authHandler: func(ctrl *gomock.Controller) sftp.AuthenticationHandler {
+				return nil
+			},
 			expectError: true,
 			errorType:   sftp.ErrConfiguration,
 		},
@@ -75,7 +76,9 @@ func TestNewConnectionManager(t *testing.T) {
 					Username: "testuser",
 				},
 			},
-			authHandler: sftp_mocks.NewMockAuthenticationHandler(ctrl),
+			authHandler: func(ctrl *gomock.Controller) sftp.AuthenticationHandler {
+				return sftp_mocks.NewMockAuthenticationHandler(ctrl)
+			},
 			expectError: true,
 			errorType:   sftp.ErrConfiguration,
 		},
@@ -88,7 +91,9 @@ func TestNewConnectionManager(t *testing.T) {
 					Username: "testuser",
 				},
 			},
-			authHandler: sftp_mocks.NewMockAuthenticationHandler(ctrl),
+			authHandler: func(ctrl *gomock.Controller) sftp.AuthenticationHandler {
+				return sftp_mocks.NewMockAuthenticationHandler(ctrl)
+			},
 			expectError: true,
 			errorType:   sftp.ErrConfiguration,
 		},
@@ -100,7 +105,9 @@ func TestNewConnectionManager(t *testing.T) {
 					Port: 22,
 				},
 			},
-			authHandler: sftp_mocks.NewMockAuthenticationHandler(ctrl),
+			authHandler: func(ctrl *gomock.Controller) sftp.AuthenticationHandler {
+				return sftp_mocks.NewMockAuthenticationHandler(ctrl)
+			},
 			expectError: true,
 			errorType:   sftp.ErrConfiguration,
 		},
@@ -123,7 +130,9 @@ func TestNewConnectionManager(t *testing.T) {
 					},
 				},
 			},
-			authHandler: sftp_mocks.NewMockAuthenticationHandler(ctrl),
+			authHandler: func(ctrl *gomock.Controller) sftp.AuthenticationHandler {
+				return sftp_mocks.NewMockAuthenticationHandler(ctrl)
+			},
 			expectError: true,
 			errorType:   sftp.ErrConfiguration,
 		},
@@ -131,7 +140,11 @@ func TestNewConnectionManager(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager, err := sftp.NewConnectionManager(tt.authHandler, tt.config.Authentication, tt.config.Connection)
+			ctrl := gomock.NewController(t)
+			t.Cleanup(ctrl.Finish)
+
+			authHandler := tt.authHandler(ctrl)
+			manager, err := sftp.NewConnectionManager(authHandler, tt.config.Authentication, tt.config.Connection)
 
 			if tt.expectError {
 				assert.Error(t, err)
