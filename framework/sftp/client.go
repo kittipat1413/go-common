@@ -16,7 +16,8 @@ import (
 
 // Client is the main interface for SFTP operations
 type Client interface {
-	// Connect establishes a new SFTP connection and registers it in the connection pool
+	// Connect validates connectivity to the SFTP server by borrowing a connection from the connection manager and releasing it back
+	// It does not keep a persistent connection open
 	Connect(ctx context.Context) error
 	// Upload uploads a local file to the remote SFTP server
 	Upload(ctx context.Context, localPath, remotePath string, opts ...UploadOption) error
@@ -42,7 +43,6 @@ type sftpClient struct {
 	authHandler       AuthenticationHandler
 	connectionManager ConnectionManager
 	transferConfig    TransferConfig
-	connected         bool
 }
 
 // NewClient creates a new SFTP client with the given configuration
@@ -90,44 +90,30 @@ func NewClientWithDependencies(authHandler AuthenticationHandler, connectionMana
 		authHandler:       authHandler,
 		connectionManager: connectionManager,
 		transferConfig:    mergedTransferConfig,
-		connected:         false,
 	}, nil
 }
 
-// Connect establishes a new SFTP connection and registers it in the connection pool
+// Connect validates connectivity to the SFTP server.
+// It borrows a connection from the pool and immediately releases it back
 func (c *sftpClient) Connect(ctx context.Context) error {
-	if c.connected {
-		return nil
-	}
-
 	// Test connection by getting a client from the pool
 	client, err := c.connectionManager.GetConnection(ctx)
 	if err != nil {
-		return err // errors are wrapped in GetConnection
+		return err
 	}
 
 	// Release the connection back to the pool
 	if err := c.connectionManager.ReleaseConnection(client); err != nil {
-		return err // errors are wrapped in ReleaseConnection
+		return err
 	}
 
-	c.connected = true
 	return nil
 }
 
 // Close forcefully closes all connections in the SFTP connection pool, including connections currently in use
 // This method is intended to be called during application shutdown
 func (c *sftpClient) Close() error {
-	if !c.connected {
-		return nil
-	}
-
-	if err := c.connectionManager.Close(); err != nil {
-		return err // errors are wrapped in Close
-	}
-
-	c.connected = false
-	return nil
+	return c.connectionManager.Close()
 }
 
 // UploadConfig configures how Upload behaves
@@ -146,15 +132,15 @@ type UploadConfig struct {
 // UploadOption defines options for upload operations
 type UploadOption func(*UploadConfig)
 
-// WithCreateDirs sets whether to create directories during upload
-func WithCreateDirs(create bool) UploadOption {
+// WithUploadCreateDirs sets whether to create directories during upload
+func WithUploadCreateDirs(create bool) UploadOption {
 	return func(config *UploadConfig) {
 		config.CreateDirs = create
 	}
 }
 
-// WithPreservePermissions sets whether to preserve file permissions during upload
-func WithPreservePermissions(preserve bool) UploadOption {
+// WithUploadPreservePermissions sets whether to preserve file permissions during upload
+func WithUploadPreservePermissions(preserve bool) UploadOption {
 	return func(config *UploadConfig) {
 		config.PreservePermissions = preserve
 	}
@@ -233,7 +219,7 @@ func (c *sftpClient) Upload(ctx context.Context, localPath, remotePath string, o
 	}
 
 	// Check overwrite policy
-	if err := c.checkOverwritePolicy(client, remotePath, localInfo, config.OverwritePolicy); err != nil {
+	if err := c.checkRemoteOverwritePolicy(client, remotePath, localInfo, config.OverwritePolicy); err != nil {
 		return err
 	}
 
@@ -714,8 +700,8 @@ func (c *sftpClient) createRemoteDir(client *sftp.Client, remotePath string) err
 	return nil
 }
 
-// checkOverwritePolicy checks if a remote file can be overwritten based on policy
-func (c *sftpClient) checkOverwritePolicy(client *sftp.Client, remotePath string, localInfo os.FileInfo, policy OverwritePolicy) error {
+// checkRemoteOverwritePolicy checks if a remote file can be overwritten based on policy
+func (c *sftpClient) checkRemoteOverwritePolicy(client *sftp.Client, remotePath string, localInfo os.FileInfo, policy OverwritePolicy) error {
 	if policy == OverwriteAlways {
 		return nil
 	}
@@ -723,8 +709,10 @@ func (c *sftpClient) checkOverwritePolicy(client *sftp.Client, remotePath string
 	// Check if remote file exists
 	remoteInfo, err := client.Stat(remotePath)
 	if err != nil {
-		// File doesn't exist, so we can create it
-		return nil
+		if os.IsNotExist(err) {
+			return nil // File doesn't exist, so we can create it
+		}
+		return fmt.Errorf("%w: failed to stat remote file %s: %v", ErrDataTransfer, remotePath, err)
 	}
 
 	switch policy {
