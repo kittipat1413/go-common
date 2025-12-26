@@ -130,8 +130,9 @@ func (cp *connectionPool) GetConnection(ctx context.Context) (*sftp.Client, erro
 		// Pool is full, return error
 		return fmt.Errorf("%w: no available connections in the pool", ErrConnectionPoolFull)
 	}, func(attempt int, err error) bool {
-		// Retry on all errors except when the pool is closed
-		return !errors.Is(err, ErrConnectionClosed)
+		// Do not retry on connection closed or authentication errors
+		return !errors.Is(err, ErrConnectionClosed) &&
+			!errors.Is(err, ErrAuthentication)
 	})
 
 	if err != nil {
@@ -202,7 +203,10 @@ func (cp *connectionPool) createConnectionWithRetry(ctx context.Context) (*poole
 		// Successfully created connection
 		pooledConnection = connection
 		return nil
-	}, nil)
+	}, func(attempt int, err error) bool {
+		// Do not retry on authentication errors
+		return !errors.Is(err, ErrAuthentication)
+	})
 
 	if err != nil {
 		return nil, err // errors are wrapped in ExecuteWithRetry
