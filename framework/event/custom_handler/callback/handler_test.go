@@ -16,6 +16,7 @@ import (
 
 	"github.com/kittipat1413/go-common/framework/event"
 	callbackhandler "github.com/kittipat1413/go-common/framework/event/custom_handler/callback"
+	"github.com/kittipat1413/go-common/framework/logger"
 )
 
 func NewTestClient(fn RoundTripFunc) *http.Client {
@@ -67,6 +68,7 @@ func TestAfterHandle_SuccessCallback(t *testing.T) {
 	// Create the handler with the custom HTTP client
 	handler := callbackhandler.NewEventHandler(
 		callbackhandler.WithHTTPClient[SamplePayload](client),
+		callbackhandler.WithLogger[SamplePayload](logger.NewNoopLogger()),
 	)
 
 	// Call AfterHandle with no error to simulate success
@@ -114,6 +116,7 @@ func TestAfterHandle_FailureCallback(t *testing.T) {
 	// Create the handler with the custom HTTP client
 	handler := callbackhandler.NewEventHandler(
 		callbackhandler.WithHTTPClient[SamplePayload](client),
+		callbackhandler.WithLogger[SamplePayload](logger.NewNoopLogger()),
 	)
 
 	// Call AfterHandle with an error to simulate failure
@@ -165,6 +168,7 @@ func TestAfterHandle_RetriesOnServerError(t *testing.T) {
 	handler := callbackhandler.NewEventHandler(
 		callbackhandler.WithHTTPClient[SamplePayload](client),
 		callbackhandler.WithCallbackConfig[SamplePayload](maxRetries, 1*time.Millisecond, 1*time.Minute),
+		callbackhandler.WithLogger[SamplePayload](logger.NewNoopLogger()),
 	)
 
 	// Call AfterHandle with an error to simulate failure, which triggers the FailURL callback
@@ -221,6 +225,7 @@ func TestAfterHandle_NoRetriesOnBadRequest(t *testing.T) {
 	handler := callbackhandler.NewEventHandler(
 		callbackhandler.WithHTTPClient[SamplePayload](client),
 		callbackhandler.WithCallbackConfig[SamplePayload](maxRetries, 1*time.Millisecond, 1*time.Minute),
+		callbackhandler.WithLogger[SamplePayload](logger.NewNoopLogger()),
 	)
 
 	// Call AfterHandle with an error to simulate failure, which triggers the FailURL callback
