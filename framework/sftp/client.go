@@ -160,6 +160,33 @@ func WithUploadOverwritePolicy(policy OverwritePolicy) UploadOption {
 	}
 }
 
+/////////// Convenience functions for common overwrite policies //////////
+
+// WithUploadOverwriteAlways sets upload to always overwrite existing files
+func WithUploadOverwriteAlways() UploadOption {
+	return WithUploadOverwritePolicy(OverwriteAlways)
+}
+
+// WithUploadOverwriteNever sets upload to never overwrite existing files
+func WithUploadOverwriteNever() UploadOption {
+	return WithUploadOverwritePolicy(OverwriteNever)
+}
+
+// WithUploadOverwriteIfNewer sets upload to overwrite only if local file is newer
+func WithUploadOverwriteIfNewer() UploadOption {
+	return WithUploadOverwritePolicy(OverwriteIfNewer)
+}
+
+// WithUploadOverwriteIfDifferentSize sets upload to overwrite only if file sizes differ
+func WithUploadOverwriteIfDifferentSize() UploadOption {
+	return WithUploadOverwritePolicy(OverwriteIfDifferentSize)
+}
+
+// WithUploadOverwriteIfNewerOrDifferentSize sets upload to overwrite if newer or different size
+func WithUploadOverwriteIfNewerOrDifferentSize() UploadOption {
+	return WithUploadOverwritePolicy(OverwriteIfNewerOrDifferentSize)
+}
+
 // Upload uploads a local file to the remote SFTP server
 //
 // Behavior:
@@ -301,6 +328,33 @@ func WithDownloadOverwritePolicy(policy OverwritePolicy) DownloadOption {
 	return func(config *DownloadConfig) {
 		config.OverwritePolicy = policy
 	}
+}
+
+/////////// Convenience functions for common overwrite policies //////////
+
+// WithDownloadOverwriteAlways sets download to always overwrite existing files
+func WithDownloadOverwriteAlways() DownloadOption {
+	return WithDownloadOverwritePolicy(OverwriteAlways)
+}
+
+// WithDownloadOverwriteNever sets download to never overwrite existing files
+func WithDownloadOverwriteNever() DownloadOption {
+	return WithDownloadOverwritePolicy(OverwriteNever)
+}
+
+// WithDownloadOverwriteIfNewer sets download to overwrite only if remote file is newer
+func WithDownloadOverwriteIfNewer() DownloadOption {
+	return WithDownloadOverwritePolicy(OverwriteIfNewer)
+}
+
+// WithDownloadOverwriteIfDifferentSize sets download to overwrite only if file sizes differ
+func WithDownloadOverwriteIfDifferentSize() DownloadOption {
+	return WithDownloadOverwritePolicy(OverwriteIfDifferentSize)
+}
+
+// WithDownloadOverwriteIfNewerOrDifferentSize sets download to overwrite if newer or different size
+func WithDownloadOverwriteIfNewerOrDifferentSize() DownloadOption {
+	return WithDownloadOverwritePolicy(OverwriteIfNewerOrDifferentSize)
 }
 
 // Download downloads a remote file from the SFTP server to local storage
@@ -770,56 +824,4 @@ func (c *sftpClient) checkLocalOverwritePolicy(localPath string, remoteInfo os.F
 	}
 
 	return nil
-}
-
-// Convenience functions for common overwrite policies
-
-// WithUploadOverwriteAlways sets upload to always overwrite existing files
-func WithUploadOverwriteAlways() UploadOption {
-	return WithUploadOverwritePolicy(OverwriteAlways)
-}
-
-// WithUploadOverwriteNever sets upload to never overwrite existing files
-func WithUploadOverwriteNever() UploadOption {
-	return WithUploadOverwritePolicy(OverwriteNever)
-}
-
-// WithUploadOverwriteIfNewer sets upload to overwrite only if local file is newer
-func WithUploadOverwriteIfNewer() UploadOption {
-	return WithUploadOverwritePolicy(OverwriteIfNewer)
-}
-
-// WithUploadOverwriteIfDifferentSize sets upload to overwrite only if file sizes differ
-func WithUploadOverwriteIfDifferentSize() UploadOption {
-	return WithUploadOverwritePolicy(OverwriteIfDifferentSize)
-}
-
-// WithUploadOverwriteIfNewerOrDifferentSize sets upload to overwrite if newer or different size
-func WithUploadOverwriteIfNewerOrDifferentSize() UploadOption {
-	return WithUploadOverwritePolicy(OverwriteIfNewerOrDifferentSize)
-}
-
-// WithDownloadOverwriteAlways sets download to always overwrite existing files
-func WithDownloadOverwriteAlways() DownloadOption {
-	return WithDownloadOverwritePolicy(OverwriteAlways)
-}
-
-// WithDownloadOverwriteNever sets download to never overwrite existing files
-func WithDownloadOverwriteNever() DownloadOption {
-	return WithDownloadOverwritePolicy(OverwriteNever)
-}
-
-// WithDownloadOverwriteIfNewer sets download to overwrite only if remote file is newer
-func WithDownloadOverwriteIfNewer() DownloadOption {
-	return WithDownloadOverwritePolicy(OverwriteIfNewer)
-}
-
-// WithDownloadOverwriteIfDifferentSize sets download to overwrite only if file sizes differ
-func WithDownloadOverwriteIfDifferentSize() DownloadOption {
-	return WithDownloadOverwritePolicy(OverwriteIfDifferentSize)
-}
-
-// WithDownloadOverwriteIfNewerOrDifferentSize sets download to overwrite if newer or different size
-func WithDownloadOverwriteIfNewerOrDifferentSize() DownloadOption {
-	return WithDownloadOverwritePolicy(OverwriteIfNewerOrDifferentSize)
 }

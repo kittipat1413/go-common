@@ -47,6 +47,7 @@ func main() {
 	client, err := sftp.NewClient(config)
 	if err != nil {
 		fmt.Println("Failed to create SFTP client:", err)
+		return
 	}
 	defer func() {
 		// Close all connections in the SFTP connection pool
