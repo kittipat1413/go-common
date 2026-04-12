@@ -15,9 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
       - name: run tests
@@ -26,7 +26,7 @@ jobs:
       # Only create the coverage badge on push to main
       - name: create coverage badge
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: tj-actions/coverage-badge-go@v2
+        uses: tj-actions/coverage-badge-go@v3
         with:
           text: coverage
           filename: coverage_summary.out
