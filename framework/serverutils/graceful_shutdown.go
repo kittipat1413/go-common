@@ -110,7 +110,7 @@ func GracefulShutdownSystem(
 		}
 
 		// Context for shutdown operations
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 		defer cancel()
 
 		// Execute operations in defined order

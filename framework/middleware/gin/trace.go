@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
-	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
@@ -188,7 +188,6 @@ func buildRequestAttributes(c *gin.Context) []attribute.KeyValue {
 		semconv.HTTPRouteKey.String(c.FullPath()),
 		semconv.URLFullKey.String(c.Request.URL.String()),
 		semconv.URLPathKey.String(c.Request.URL.Path),
-		semconv.ServerAddressKey.String(c.Request.Host),
 	}
 
 	// Add request content length if available.
