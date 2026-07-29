@@ -179,7 +179,7 @@ func ExtractBaseError(err error) *BaseError {
 
 	// Get the concrete value of the error
 	errValue := reflect.ValueOf(err)
-	if errValue.Kind() == reflect.Ptr {
+	if errValue.Kind() == reflect.Pointer {
 		if errValue.IsNil() {
 			return nil
 		}
