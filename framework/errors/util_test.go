@@ -172,7 +172,7 @@ func TestUnwrapDomainError(t *testing.T) {
 			name: "should return DomainError when it exists in the error chain",
 			prepareErr: func() error {
 				baseErr, _ := domain_error.NewBaseError("400001", "mock domain error", nil)
-				domainErr := &MockDomainError{BaseError: baseErr}
+				domainErr := MockDomainError{BaseError: baseErr}
 				return fmt.Errorf("wrapped error: %w", domainErr)
 			},
 			expectedMsg:   "mock domain error",
@@ -182,7 +182,7 @@ func TestUnwrapDomainError(t *testing.T) {
 			name: "should unwrap multiple layers to find DomainError",
 			prepareErr: func() error {
 				baseErr, _ := domain_error.NewBaseError("400001", "deeply wrapped domain error", nil)
-				domainErr := &MockDomainError{BaseError: baseErr}
+				domainErr := MockDomainError{BaseError: baseErr}
 				wrappedErr := fmt.Errorf("level 1: %w", domainErr)
 				wrappedErr = fmt.Errorf("level 2: %w", wrappedErr)
 				wrappedErr = fmt.Errorf("level 3: %w", wrappedErr)

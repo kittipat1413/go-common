@@ -9,11 +9,15 @@ install:
 	@echo "Installing tools... 🚀"
 	@test -e $(GO_BIN)/mockgen || go install github.com/golang/mock/mockgen@v1.7.0-rc.1
 
-precommit: lint test
+precommit: lint test trivy-scan
 
 lint:
 	@echo "Running linters... 🧹"
 	@$(GOLINT) run
+
+trivy-scan:
+	@echo "Running Trivy scan... 🔍"
+	@trivy fs --exit-code 1 --severity LOW,MEDIUM,HIGH,CRITICAL --no-progress .
 
 test:
 	@echo "Running tests... 🧪"
